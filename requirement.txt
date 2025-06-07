@@ -1,0 +1,10 @@
+fastapi[all]
+motor
+pymongo
+pymongo[srv]
+redis
+httpx
+pycountry
+phonenumbers
+passlib
+bcrypt
