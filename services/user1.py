@@ -2,6 +2,7 @@ from model.model import User
 from helper.utils import password_hash, generate_country,id_generator,password_context,generate_access_token
 from schema.schemas import individual_serializer
 from fastapi import HTTPException, status,Request
+from config.database import user1_collection_name
 import json
 class UserService:
     async def create_user(self, user_data: User,request:Request):

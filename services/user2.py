@@ -1,6 +1,6 @@
 from model.model import User
 from fastapi import HTTPException,status,Request
-from schema.schemas import individual_serializer, list_serializer
+from schema.schemas import individual_serializer
 from helper.utils import generate_access_token, password_hash,generate_country, id_generator,password_context
 from config.database import user2_collection_name
 import json
