@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr, root_validator
+from typing import Optional
 from helper.utils import id_generator, generate_country
 
 class BaseUser(BaseModel):
@@ -12,4 +13,3 @@ class User(BaseModel):
     country_code: str = Field(..., description="Country Code")
     password: str = Field(..., description="Password")
     # country is not expected from client input, so exclude here
-

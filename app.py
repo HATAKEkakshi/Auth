@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from scalar_fastapi import get_scalar_api_reference
 from routes.user1 import user as user1_router
 from routes.user2 import user as user2_router
 from redis.asyncio import Redis
@@ -23,3 +24,9 @@ async def startup():
 async def shutdown():
     await app.state.redis.close()
     await app.state.http_client.aclose()
+@app.get("/scalar", include_in_schema=False)
+def get_scalar_docs():
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url,
+        title="Scalar API"
+    )

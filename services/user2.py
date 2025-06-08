@@ -1,7 +1,7 @@
 from model.model import User
 from fastapi import HTTPException,status,Request
 from schema.schemas import individual_serializer, list_serializer
-from helper.utils import password_hash,generate_country, id_generator
+from helper.utils import generate_access_token, password_hash,generate_country, id_generator,password_context
 from config.database import user2_collection_name
 import json
 class UserService:
@@ -75,3 +75,15 @@ class UserService:
         return {
             "message": f"User with id {id} and email {email} deleted successfully"
         }
+    async def token(self,email,password)->str:
+            user= await user2_collection_name.find_one({"email": email})
+            if user is None or not password_context.verify(password, user['password']):
+                raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+            token = generate_access_token({
+            "id": user["id"],
+            "email": user["email"],
+            })
+            return token
