@@ -2,6 +2,7 @@ import random
 import string
 from fastapi import HTTPException, status
 import jwt
+from uuid import uuid4
 from config.secert import security_settings
 from phonenumbers.phonenumberutil import region_code_for_country_code
 import pycountry
@@ -49,6 +50,7 @@ def generate_access_token(data:dict, expiry:timedelta=timedelta(days=1))->str:
     return jwt.encode(
         payload={
             **data,
+            "jti":str(uuid4()),
             "exp": int((datetime.now(timezone.utc) + expiry).timestamp()),
         },
         algorithm=security_settings.JWT_ALGORITHM,

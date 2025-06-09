@@ -1,12 +1,13 @@
 from core.security import oauth2_scheme
 from model.model import User
+from config.redis import is_jti_blacklisted
 from fastapi import Depends, HTTPException, status
 from typing import Annotated
 from helper.utils import decode_access_token
 from config.database import user1_collection_name,user2_collection_name
-def get_access_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
+async def get_access_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     data = decode_access_token(token)
-    if data is None:
+    if data is None or await is_jti_blacklisted(data["jti"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token",
