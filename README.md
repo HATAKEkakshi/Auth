@@ -1,4 +1,4 @@
-# FastAPI Authentication System
+# Authentication System
 
 A comprehensive authentication system built with FastAPI, featuring multi-user support, email verification, password reset functionality, and OTP-based phone verification.
 
