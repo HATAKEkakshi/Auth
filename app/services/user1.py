@@ -70,6 +70,16 @@ class User1Service(UserService):
             tasks
         )
     async def generate_otp_phone(self, id, phone, request):
-        return await self.generate_otp(id, phone, request, self.collection_name,self.redis_key_prefix)
+        return await self.generate_otp(
+            id, 
+            phone, 
+            request, 
+            self.collection_name,
+            self.redis_key_prefix
+        )
     async def verify_otp_phone(self, token, otp, request):
-        return await self.verify_otp(token, otp, request)
+        return await self.verify_otp(
+            token, 
+            otp, 
+            request
+            )
