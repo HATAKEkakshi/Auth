@@ -1,10 +1,11 @@
+from random import randint
 from fastapi import BackgroundTasks, HTTPException, Request, status
 from config.notification import app_settings
 from services.notifications import NotificationService
 from helper.utils import (
     generate_country, id_generator, password_hash,
     password_context, generate_access_token,
-    generate_url_safe_token, decode_url_safe_token
+    generate_url_safe_token, decode_url_safe_token,generate_otp_token, decode_otp_token
 )
 import json
 
@@ -197,3 +198,32 @@ class UserService:
         await redis.delete(f"{redis_key_prefix}:{user['email']}")
 
         return {"message": "Password reset successfully"}
+    async def generate_otp(self, id:str,phone: str, request: Request,collection_name,redis_key_prefix: str):
+        user=self._get(id,request,collection_name,redis_key_prefix)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        otp=randint(100_000,999_999)
+        token= generate_otp_token(
+            {"otp":otp})
+        self.notification_service.send_sms(
+            to=phone,
+            body=f"Your OTP is {otp}. It is valid for 5 minutes.",
+        )
+        return {"message": "OTP generated successfully", "otp": token}
+    async def verify_otp(self, token: str,otp: int, request: Request):
+        token_data = decode_otp_token(token)
+        print(token_data)
+        if not token_data or "otp" not in token_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired OTP"
+            )
+        if token_data["otp"] != otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OTP"
+            )
+        return {"message": "OTP verified successfully"}

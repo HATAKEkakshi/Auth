@@ -71,7 +71,12 @@ async def reset_password(
         name="reset_success.html" if is_success else "reset_failed.html"
     )
 
-
+@user.post("/otp_phone")
+async def otp_phone(id:str,phone: str, request: Request):
+    return await user_service.generate_otp_phone(id,phone,request)
+@user.get("/verify_otp_phone")
+async def verify_otp_phone(token: str, otp: int, request: Request):
+    return await user_service.verify_otp_phone(token, otp, request)
 @user.get("/logout")
 async def logout(token_data: Annotated[dict, Depends(get_access_token)]):
     await add_jti_to_blacklist(token_data["jti"])

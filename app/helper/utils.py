@@ -83,3 +83,26 @@ def decode_url_safe_token(token,salt:str,expiry:timedelta|None=None)->dict|None:
         return _serializer.loads(token,salt=salt,max_age=expiry.total_seconds() if expiry else None)
     except(BadSignature,SignatureExpired):
         return None
+def generate_otp_token(data:dict, expiry:timedelta=timedelta(days=1))->str:
+    return jwt.encode(
+        payload={
+            **data,
+            "exp": int((datetime.now(timezone.utc) + expiry).timestamp()),
+        },
+        algorithm=security_settings.JWT_ALGORITHM,
+        key=security_settings.JWT_SECRET
+    )
+def decode_otp_token(token:str)->dict| None:
+    try:
+        return jwt.decode(
+            jwt=token,
+            key=security_settings.JWT_SECRET,
+            algorithms=[security_settings.JWT_ALGORITHM]
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Access Token has expired"
+        )
+    except jwt.PyJWTError:
+        return None
