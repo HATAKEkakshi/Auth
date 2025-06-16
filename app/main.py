@@ -5,9 +5,40 @@ from routes.user2 import user as user2_router
 from redis.asyncio import Redis
 import httpx
 from fastapi import APIRouter
+from fastapi.middleware.cors import CORSMiddleware
 
 
 app=FastAPI()
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "*",  
+    ],# add your server name here 
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language", 
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRF-Token",
+    ],
+    expose_headers=["X-Total-Count", "X-Page-Count"],
+    max_age=600,  # Cache preflight requests for 10 minutes
+)
+
+"""
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+"""
 #Create master router
 master_router=APIRouter()
 master_router.include_router(user1_router)

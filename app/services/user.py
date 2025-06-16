@@ -199,7 +199,7 @@ class UserService:
 
         return {"message": "Password reset successfully"}
     async def generate_otp(self, id:str,phone: str, request: Request,collection_name,redis_key_prefix: str):
-        user=self._get(id,request,collection_name,redis_key_prefix)
+        user=await self._get(id,request,collection_name,redis_key_prefix)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -215,7 +215,6 @@ class UserService:
         return {"message": "OTP generated successfully", "otp": token}
     async def verify_otp(self, token: str,otp: int, request: Request):
         token_data = decode_otp_token(token)
-        print(token_data)
         if not token_data or "otp" not in token_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
