@@ -9,3 +9,4 @@ phonenumbers
 passlib
 bcrypt
 pyjwt
+fastapi-mail
