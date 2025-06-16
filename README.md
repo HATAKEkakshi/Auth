@@ -36,13 +36,13 @@ A comprehensive authentication system built with FastAPI, featuring multi-user s
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
-   cd fastapi-auth-system
+   git clone https://github.com/HATAKEkakshi/Auth.git
+   cd Auth/app
    ```
 
 2. **Install dependencies**
    ```bash
-   pip install fastapi uvicorn motor redis fastapi-mail twilio jinja2 pydantic-settings python-multipart
+   pip install -r requirement.txt
    ```
 
 3. **Set up environment variables**
