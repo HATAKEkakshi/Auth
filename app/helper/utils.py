@@ -1,5 +1,6 @@
 import random    
 import string
+from itsdangerous import BadSignature,Serializer,URLSafeSerializer,URLSafeTimedSerializer,SignatureExpired
 from fastapi import HTTPException, status
 import jwt
 from uuid import uuid4
@@ -11,7 +12,7 @@ from pathlib import Path
 from datetime import datetime,timezone,timedelta
 APP_DIR= Path(__file__).resolve().parent
 TEMPLATE_DIR = APP_DIR.parent / "templates"
-print("###########Here:###################",TEMPLATE_DIR)
+_serializer=URLSafeTimedSerializer(security_settings.JWT_SECRET)
 # Password hashing context
 password_context=CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_country_from_dial_code(dial_code: str) -> str:
@@ -74,4 +75,11 @@ def decode_access_token(token:str)->dict| None:
             detail="Access Token has expired"
         )
     except jwt.PyJWTError:
+        return None
+def generate_url_safe_token(data:dict,salt:str|None=None)->str:
+    return _serializer.dumps(data,salt=salt)
+def decode_url_safe_token(token,salt:str,expiry:timedelta|None=None)->dict|None:
+    try:
+        return _serializer.loads(token,salt=salt,max_age=expiry.total_seconds() if expiry else None)
+    except(BadSignature,SignatureExpired):
         return None

@@ -12,4 +12,5 @@ class User(BaseModel):
     phone: str = Field(..., description="Phone Number")
     country_code: str = Field(..., description="Country Code")
     password: str = Field(..., description="Password")
+    is_email_verified: bool = Field(default=False, description="Email Verification Status")
     # country is not expected from client input, so exclude here

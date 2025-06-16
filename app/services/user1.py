@@ -8,6 +8,7 @@ class User1Service(UserService):
         super().__init__(model)
         self.collection_name = user1_collection_name
         self.redis_key_prefix = "user1"
+        self.router_prefix = "User1"  # ✅ Used for email verification link
 
     async def create_user(self, user_data: User, request: Request, tasks: BackgroundTasks):
         return await self._add(
@@ -15,7 +16,8 @@ class User1Service(UserService):
             request,
             self.collection_name,
             self.redis_key_prefix,
-            tasks  # ✅ pass tasks properly
+            tasks,
+            self.router_prefix  # ✅ Pass router prefix here!
         )
 
     async def get_user(self, id: str, request: Request):
@@ -40,4 +42,12 @@ class User1Service(UserService):
             email,
             password,
             self.collection_name
+        )
+
+    async def verify_email_token(self, token: str, request: Request):
+        return await self.verify_email(
+            token,
+            self.collection_name,
+            request,
+            self.redis_key_prefix
         )

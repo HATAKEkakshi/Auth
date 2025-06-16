@@ -21,7 +21,10 @@ async def create_user(user_data: User, request: Request, tasks: BackgroundTasks)
 async def login_user(request_form: OAuth2PasswordRequestForm = Depends()):
     token = await user_service.token(request_form.username, request_form.password)
     return {"access_token": token, "token_type": "bearer"}
-
+@user.get("/verify")
+async def verify_email(token: str, request: Request):
+    await user_service.verify_email_token(token, request)
+    return {"message": "Email verified successfully"}
 
 @user.get("/logout")
 async def logout(token_data: Annotated[dict, Depends(get_access_token)]):
