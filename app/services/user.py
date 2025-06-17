@@ -33,6 +33,23 @@ class UserService:
         user.pop("_id", None)
         await redis.set(cache_key, json.dumps(user), ex=3600)
         return user
+    async def _get_by_email(self, email: str, request: Request, collection_name, redis_key_prefix: str):
+        redis = request.app.state.redis
+        cache_key = f"{redis_key_prefix}:email:{email}"
+        cached = await redis.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
+        user = await collection_name.find_one({"email": email})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with email {email} not found"
+            )
+
+        user.pop("_id", None)
+        await redis.set(cache_key, json.dumps(user), ex=3600)
+        return user
 
     async def _add(
         self,
@@ -116,23 +133,23 @@ class UserService:
 
         return True
 
-    async def _delete_user(self, id: str, email: str, request: Request, collection_name, redis_key_prefix: str):
+    async def _delete_user(self, CIN: str, email: str, request: Request, collection_name, redis_key_prefix: str):
         redis = request.app.state.redis
-        await redis.delete(f"{redis_key_prefix}:id:{id}")
+        await redis.delete(f"{redis_key_prefix}:CIN:{CIN}")
         await redis.delete(f"{redis_key_prefix}:{email}")
 
-        user = await collection_name.find_one({"id": id})
+        user = await collection_name.find_one({"CIN": CIN})
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User with id {id} not found"
+                detail=f"User with id {CIN} not found"
             )
 
-        await collection_name.delete_one({"id": id})
-        return {"message": f"User with id {id} and email {email} deleted successfully"}
+        await collection_name.delete_one({"CIN": CIN})
+        return {"message": f"User with CIN {CIN} and email {email} deleted successfully"}
 
-    async def _token(self, email: str, password: str, collection_name) -> str:
-        user = await collection_name.find_one({"email": email})
+    async def _token(self, email: str, password: str, request:Request,collection_name,redis_key_prefix:str) -> str:
+        user = await self._get_by_email(email, request, collection_name, redis_key_prefix)
         if not user or not password_context.verify(password, user["password"]):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
