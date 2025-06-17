@@ -26,8 +26,8 @@ async def create_user(user_data: User, request: Request, tasks: BackgroundTasks)
 
 
 @user.post("/login")
-async def login_user(request_form: OAuth2PasswordRequestForm = Depends()):
-    token = await user_service.token(request_form.username, request_form.password)
+async def login_user(request:Request,request_form: OAuth2PasswordRequestForm = Depends()):
+    token = await user_service.token(request_form.username, request_form.password,request)
     return {"access_token": token, "token_type": "bearer"}
 
 

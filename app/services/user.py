@@ -116,6 +116,7 @@ class UserService:
 
     async def verify_email(self, token: str, collection_name, request: Request, redis_key_prefix: str):
         token_data = decode_url_safe_token(token, salt=self.verification_salt)
+        print(token_data)
         if not token_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -129,6 +130,7 @@ class UserService:
 
         redis = request.app.state.redis
         await redis.delete(f"{redis_key_prefix}:id:{user['id']}")
+        await redis.delete(f"{redis_key_prefix}:{user['email']}")
         await redis.set(f"{redis_key_prefix}:{user['email']}", json.dumps(user))
 
         return True

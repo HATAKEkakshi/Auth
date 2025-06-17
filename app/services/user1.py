@@ -37,11 +37,14 @@ class User1Service(UserService):
             self.redis_key_prefix
         )
 
-    async def token(self, email: str, password: str):
+    async def token(self, email: str, password: str,request: Request):
         return await self._token(
             email,
             password,
-            self.collection_name
+            request,
+            self.collection_name,
+            self.redis_key_prefix
+
         )
 
     async def verify_email_token(self, token: str, request: Request):
