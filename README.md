@@ -222,6 +222,21 @@ The application includes comprehensive logging for debugging:
 - SMS delivery confirmation
 - Redis cache operations
 - Authentication failures
+## 📄 Documentation
+
+📚 **Complete API Documentation**  
+A detailed PDF guide is included:  
+[👉 View Authentication.pdf](https://github.com/HATAKEkakshi/Auth/blob/main/Authentication.pdf)
+
+It covers:  
+- ✅ API endpoints with examples (JavaScript & Python)  
+- ✅ Setup & configuration steps  
+- ✅ Email verification & password reset flows  
+- ✅ OTP phone verification with Twilio  
+- ✅ JWT security and token blacklisting  
+- ✅ Integration best practices & error handling
+
+**Tip:** Use this alongside `/docs` or `/scalar` for a smooth developer experience.
 
 ## 🤝 Contributing
 
