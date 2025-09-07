@@ -54,10 +54,10 @@ A comprehensive authentication system built with FastAPI, featuring multi-user s
    REDIS_PORT=6379
    
    # Email Configuration
-   MAIL_USERNAME=your-email@gmail.com
-   MAIL_PASSWORD=your-app-password
-   MAIL_FROM=your-email@gmail.com
-   MAIL_FROM_NAME=Your App Name
+   MAIL_USERNAME=${EMAIL_USERNAME}
+   MAIL_PASSWORD=${EMAIL_APP_PASSWORD}
+   MAIL_FROM=${EMAIL_FROM}
+   MAIL_FROM_NAME="Your App Name"
    MAIL_SERVER=smtp.gmail.com
    MAIL_PORT=587
    MAIL_STARTTLS=true
@@ -66,18 +66,29 @@ A comprehensive authentication system built with FastAPI, featuring multi-user s
    VALIDATE_CERTS=true
    
    # Twilio Configuration
-   TWILIO_SID=your-twilio-sid
-   TWILIO_AUTH_TOKEN=your-twilio-auth-token
-   TWILIO_NUMBER=your-twilio-phone-number
+   TWILIO_SID=${TWILIO_ACCOUNT_SID}
+   TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+   TWILIO_NUMBER=${TWILIO_PHONE_NUMBER}
    
-   # Security Configuration
-   JWT_SECRET=your-super-secret-jwt-key
+   # Security Configuration (Generate strong random keys)
+   JWT_SECRET=${JWT_SECRET_KEY}
    JWT_ALGORITHM=HS256
    
+   # Watchman Logging
+   Account_id=${WATCHMAN_ACCOUNT_ID}
+   Access_token=${WATCHMAN_ACCESS_TOKEN}
+   
    # App Configuration
-   APP_NAME=Auth System
+   APP_NAME="Auth System"
    APP_DOMAIN=localhost:8000
    ```
+   
+   **⚠️ Security Note**: Never commit actual credentials to version control. Use environment variables or AWS Secrets Manager in production.
+   
+   **Example values for development only:**
+   - Replace `${VARIABLE_NAME}` with actual values from your environment
+   - Use strong, unique secrets and tokens
+   - Rotate authentication keys regularly
 
 4. **Set up MongoDB**
    ```bash
@@ -139,7 +150,7 @@ curl -X POST "http://localhost:8000/User1/create" \
     "email": "john.doe@example.com",
     "phone": "+1234567890",
     "country_code": "US",
-    "password": "securepassword123"
+    "password": "your-secure-password"
   }'
 ```
 
@@ -148,7 +159,7 @@ curl -X POST "http://localhost:8000/User1/create" \
 ```bash
 curl -X POST "http://localhost:8000/User1/login" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=john.doe@example.com&password=securepassword123"
+  -d "username=john.doe@example.com&password=your-secure-password"
 ```
 
 ### 3. Get User Information

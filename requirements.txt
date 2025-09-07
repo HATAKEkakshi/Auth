@@ -6,12 +6,18 @@ redis
 httpx
 pycountry
 phonenumbers
-passlib
+passlib[bcrypt]
 bcrypt
-pyjwt
+pyjwt[crypto]
 fastapi-mail
 jinja2
 twilio
 scalar-fastapi
 celery
 pybloom-live
+# Security dependencies
+cryptography
+argon2-cffi
+slowapi
+python-multipart
+email-validator

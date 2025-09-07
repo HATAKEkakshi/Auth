@@ -10,7 +10,9 @@ from auth.helper.utils import (
 )
 from auth.logger.log import logger
 from auth.config.bloom import bloom_service
+from auth.middleware.security import sanitize_input, validate_email, validate_password_strength
 import json
+import html
 
 
 class UserService:
@@ -79,6 +81,50 @@ class UserService:
 
 
 
+    def _validate_user_input(self, user_data):
+        """Validate and sanitize user input data"""
+        if not validate_email(user_data.email):
+            logger("Auth", "User Service", "WARN", "MEDIUM", f"Invalid email format: {user_data.email}")
+            raise HTTPException(status_code=400, detail="Invalid email format")
+        
+        if not validate_password_strength(user_data.password):
+            logger("Auth", "User Service", "WARN", "MEDIUM", "Weak password provided")
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters with uppercase, lowercase, digit, and special character")
+        
+        # Sanitize user inputs
+        user_data.first_name = sanitize_input(user_data.first_name)
+        user_data.last_name = sanitize_input(user_data.last_name)
+        user_data.email = sanitize_input(user_data.email.lower())
+        
+        return user_data
+    
+    def _send_registration_emails(self, user_data, user_id: str, router_prefix: str):
+        """Send registration and verification emails"""
+        # Generate verification token
+        token = generate_url_safe_token(
+            {"email": user_data.email, "id": user_id},
+            salt=self.verification_salt
+        )
+
+        # Send registration email
+        self.notification_service.send_email_template(
+            email=user_data.email,
+            subject="Registration Successful",
+            context={"name": user_data.first_name},
+            template_name="registration.html"
+        )
+
+        # Send verification email
+        self.notification_service.send_email_template(
+            email=user_data.email,
+            subject="Verify your email",
+            context={
+                "name": user_data.first_name,
+                "verification_url": f"http://{app_settings.APP_DOMAIN}/{router_prefix}/verify?token={token}"
+            },
+            template_name="mail_email_verify.html"
+        )
+    
     """Create new user with email verification and caching"""
     async def _add(
         self,
@@ -89,6 +135,9 @@ class UserService:
         router_prefix: str
     ):
         try:
+            # Validate and sanitize input
+            user_data = self._validate_user_input(user_data)
+            
             cache_key = f"{redis_key_prefix}:{user_data.email}"
 
             # Fast Bloom filter check first
@@ -125,29 +174,8 @@ class UserService:
             await set_profile_data(cache_key, 3600, json.dumps(user_dict))
             await set_profile_data(key, 3600, json.dumps(user_dict))
 
-            # Generate verification token
-            token = generate_url_safe_token(
-                {"email": user_data.email, "id": user_id},
-                salt=self.verification_salt
-            )
-
-            # Send registration and verification emails
-            self.notification_service.send_email_template(
-                email=user_data.email,
-                subject="Registration Successful",
-                context={"name": user_data.first_name},
-                template_name="registration.html"
-            )
-
-            self.notification_service.send_email_template(
-                email=user_data.email,
-                subject="Verify your email",
-                context={
-                    "name": user_data.first_name,
-                    "verification_url": f"http://{app_settings.APP_DOMAIN}/{router_prefix}/verify?token={token}"
-                },
-                template_name="mail_email_verify.html"
-            )
+            # Send registration emails
+            self._send_registration_emails(user_data, user_id, router_prefix)
 
             logger("Auth", "User Service", "INFO", "null", f"User registration completed successfully: {user_data.email}")
             return {

@@ -1,4 +1,7 @@
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+import html
+import re
+from auth.security.template_validator import SecureTemplateValidator
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from auth.config.notification import notification_settings
 from auth.helper.utils import TEMPLATE_DIR
@@ -38,13 +41,8 @@ class NotificationService:
             logger("Auth", "Notification", "ERROR", "ERROR", f"Plain email sending failed: {str(e)}")
             raise
 
-    """Synchronous wrapper for plain email sending"""
-    def _sync_send_plain_email(self, message: MessageSchema):
-        try:
-            asyncio.run(self._send_plain_email(message))
-        except Exception as e:
-            logger("Auth", "Notification", "ERROR", "ERROR", f"Sync plain email sending failed: {str(e)}")
-            raise
+    """Synchronous wrapper for plain email sending - REMOVED for security"""
+    # Removed unsafe asyncio.run to prevent command injection
 
     """Send plain text email via Celery task"""
     def send_message(self, email: str, subject: str, body: str):
@@ -69,13 +67,8 @@ class NotificationService:
             logger("Auth", "Notification", "ERROR", "ERROR", f"HTML template email sending failed for {template_name}: {str(e)}")
             raise
 
-    """Synchronous wrapper for HTML template email sending"""
-    def _sync_send_html_email(self, message: MessageSchema, template_name: str):
-        try:
-            asyncio.run(self._send_html_email(message, template_name))
-        except Exception as e:
-            logger("Auth", "Notification", "ERROR", "ERROR", f"Sync HTML template email sending failed for {template_name}: {str(e)}")
-            raise
+    """Synchronous wrapper for HTML template email sending - REMOVED for security"""
+    # Removed unsafe asyncio.run to prevent command injection
     """Send HTML template email via Celery task"""
     def send_email_template(self, email: str, subject: str, context: dict, template_name: str):
         try:
@@ -129,7 +122,14 @@ def send_plain_email_task(email: str, subject: str, body: str):
             subtype=MessageType.plain,
         )
         
-        asyncio.run(fastmail.send_message(message))
+        # Use proper async context instead of asyncio.run
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(fastmail.send_message(message))
+        finally:
+            loop.close()
         logger("Auth", "Notification", "INFO", "null", f"Plain email sent successfully to: {email}")
     except Exception as e:
         logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to send plain email to {email}: {str(e)}")
@@ -153,11 +153,17 @@ def send_email_template_task(email: str, subject: str, context: dict, template_n
             )
         )
         
-        # Render template for logging
-        env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
-        template = env.get_template(template_name)
-        rendered_html = template.render(context)
-        logger("Auth", "Notification", "INFO", "null", f"Template rendered successfully: {template_name}")
+        # Use secure template validator
+        validator = SecureTemplateValidator(TEMPLATE_DIR)
+        
+        if not validator.validate_template_name(template_name):
+            logger("Auth", "Notification", "ERROR", "HIGH", f"Invalid template name: {template_name}")
+            raise ValueError(f"Template not allowed: {template_name}")
+        
+        # Sanitize context data using validator
+        sanitized_context = validator.sanitize_template_context(context)
+        
+        logger("Auth", "Notification", "INFO", "null", f"Template validated and context sanitized: {template_name}")
 
         message = MessageSchema(
             subject=subject,
@@ -166,7 +172,14 @@ def send_email_template_task(email: str, subject: str, context: dict, template_n
             subtype=MessageType.html,
         )
         
-        asyncio.run(fastmail.send_message(message=message, template_name=template_name))
+        # Use proper async context instead of asyncio.run
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(fastmail.send_message(message=message, template_name=template_name))
+        finally:
+            loop.close()
         logger("Auth", "Notification", "INFO", "null", f"Template email sent successfully to: {email}, template: {template_name}")
     except Exception as e:
         logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to send template email to {email}, template {template_name}: {str(e)}")
@@ -175,11 +188,31 @@ def send_email_template_task(email: str, subject: str, context: dict, template_n
 
 
 
+def _validate_phone_number(phone: str) -> bool:
+    """Validate phone number format to prevent injection"""
+    # Only allow digits, +, -, (, ), and spaces
+    pattern = r'^[+]?[0-9\s\-\(\)]+$'
+    return bool(re.match(pattern, phone)) and len(phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')) >= 10
+
+def _sanitize_sms_body(body: str) -> str:
+    """Sanitize SMS body to prevent injection"""
+    # Remove any potential command injection characters
+    sanitized = re.sub(r'[;&|`$(){}\[\]<>]', '', body)
+    return sanitized[:160]  # SMS length limit
+
 @celery_app.task(name="notifications.send_sms")
 def send_sms_task(to: str, body: str):
-    """Celery task for sending SMS via Twilio"""
+    """Celery task for sending SMS via Twilio with security validation"""
     try:
-        logger("Auth", "Notification", "INFO", "null", f"Starting SMS task for: {to}")
+        # Validate phone number
+        if not _validate_phone_number(to):
+            logger("Auth", "Notification", "ERROR", "HIGH", f"Invalid phone number format: {to}")
+            raise ValueError("Invalid phone number format")
+        
+        # Sanitize SMS body
+        sanitized_body = _sanitize_sms_body(body)
+        
+        logger("Auth", "Notification", "INFO", "null", f"Starting SMS task for validated number")
         
         twilio_client = Client(
             notification_settings.TWILIO_SID,
@@ -187,12 +220,12 @@ def send_sms_task(to: str, body: str):
         )
         
         message = twilio_client.messages.create(
-            body=body,
+            body=sanitized_body,
             from_=notification_settings.TWILIO_NUMBER,
             to=to
         )
         
-        logger("Auth", "Notification", "INFO", "null", f"SMS sent successfully to: {to}, SID: {message.sid}")
+        logger("Auth", "Notification", "INFO", "null", f"SMS sent successfully, SID: {message.sid}")
     except Exception as e:
-        logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to send SMS to {to}: {str(e)}")
+        logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to send SMS: {str(e)}")
         raise

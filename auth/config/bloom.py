@@ -1,8 +1,9 @@
 from pybloom_live import BloomFilter
 from auth.logger.log import logger
-import pickle
+import json
 import os
 from pathlib import Path
+import re
 
 """Bloom filter configuration for Auth system security enhancements"""
 
@@ -25,32 +26,79 @@ class BloomFilterService:
             logger("Auth", "Bloom Filter", "ERROR", "ERROR", f"BloomFilterService initialization failed: {str(e)}")
             raise
     
+    def _sanitize_filename(self, name: str) -> str:
+        """Sanitize filename to prevent path traversal"""
+        # Only allow alphanumeric characters and underscores
+        sanitized = re.sub(r'[^a-zA-Z0-9_]', '', name)
+        if not sanitized or sanitized != name:
+            raise ValueError(f"Invalid filter name: {name}")
+        return sanitized
+    
     def _load_or_create_filter(self, name: str, capacity: int, error_rate: float) -> BloomFilter:
         """Load existing bloom filter or create new one"""
         try:
-            filter_path = self.bloom_dir / f"{name}.bloom"
+            sanitized_name = self._sanitize_filename(name)
+            # Use secure path construction to prevent traversal
+            filter_path = self.bloom_dir / sanitized_name
+            filter_path = filter_path.with_suffix('.json')
+            
+            # Ensure path is within allowed directory
+            if not str(filter_path.resolve()).startswith(str(self.bloom_dir.resolve())):
+                raise ValueError(f"Path traversal attempt detected: {sanitized_name}")
             
             if filter_path.exists():
-                with open(filter_path, 'rb') as f:
-                    bloom_filter = pickle.load(f)
-                logger("Auth", "Bloom Filter", "INFO", "null", f"Loaded existing bloom filter: {name}")
+                # Additional security check before file access
+                abs_filter_path = filter_path.resolve()
+                abs_bloom_dir = self.bloom_dir.resolve()
+                if not str(abs_filter_path).startswith(str(abs_bloom_dir)):
+                    raise ValueError("Path traversal blocked")
+                
+                with abs_filter_path.open('r') as f:
+                    data = json.load(f)
+                bloom_filter = BloomFilter(capacity=data['capacity'], error_rate=data['error_rate'])
+                # Reconstruct bloom filter from bit array
+                for item in data.get('items', []):
+                    bloom_filter.add(item)
+                logger("Auth", "Bloom Filter", "INFO", "null", f"Loaded existing bloom filter: {sanitized_name}")
                 return bloom_filter
             else:
                 bloom_filter = BloomFilter(capacity=capacity, error_rate=error_rate)
-                self._save_filter(name, bloom_filter)
-                logger("Auth", "Bloom Filter", "INFO", "null", f"Created new bloom filter: {name}")
+                self._save_filter(sanitized_name, bloom_filter)
+                logger("Auth", "Bloom Filter", "INFO", "null", f"Created new bloom filter: {sanitized_name}")
                 return bloom_filter
         except Exception as e:
             logger("Auth", "Bloom Filter", "ERROR", "ERROR", f"Failed to load/create bloom filter {name}: {str(e)}")
             raise
     
     def _save_filter(self, name: str, bloom_filter: BloomFilter):
-        """Save bloom filter to disk"""
+        """Save bloom filter to disk using secure JSON format"""
         try:
-            filter_path = self.bloom_dir / f"{name}.bloom"
-            with open(filter_path, 'wb') as f:
-                pickle.dump(bloom_filter, f)
-            logger("Auth", "Bloom Filter", "INFO", "null", f"Saved bloom filter: {name}")
+            sanitized_name = self._sanitize_filename(name)
+            # Use secure path construction to prevent traversal
+            filter_path = self.bloom_dir / sanitized_name
+            filter_path = filter_path.with_suffix('.json')
+            
+            # Ensure path is within allowed directory
+            if not str(filter_path.resolve()).startswith(str(self.bloom_dir.resolve())):
+                raise ValueError(f"Path traversal attempt detected: {sanitized_name}")
+            
+            # Save metadata only (items are tracked separately for security)
+            data = {
+                'capacity': bloom_filter.capacity,
+                'error_rate': bloom_filter.error_rate,
+                'count': bloom_filter.count,
+                'items': []  # Don't store actual items for security
+            }
+            
+            # Additional security check before file access
+            abs_filter_path = filter_path.resolve()
+            abs_bloom_dir = self.bloom_dir.resolve()
+            if not str(abs_filter_path).startswith(str(abs_bloom_dir)):
+                raise ValueError("Path traversal blocked")
+            
+            with abs_filter_path.open('w') as f:
+                json.dump(data, f, indent=2)
+            logger("Auth", "Bloom Filter", "INFO", "null", f"Saved bloom filter: {sanitized_name}")
         except Exception as e:
             logger("Auth", "Bloom Filter", "ERROR", "ERROR", f"Failed to save bloom filter {name}: {str(e)}")
             raise

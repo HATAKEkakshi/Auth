@@ -8,15 +8,21 @@ from fastapi import APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from auth.config.database import start_db_monitoring,db_settings
 from auth.config.redis import start_redis_monitoring
+from auth.middleware.security import SecurityMiddleware
 
 
 app=FastAPI()
+
+# Security Middleware (first for maximum protection)
+app.add_middleware(SecurityMiddleware, rate_limit_requests=100, rate_limit_window=3600)
+
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "*",  
-    ],# add your server name here 
+        "http://localhost:3000",  # Restrict to specific origins
+        "https://yourdomain.com",
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[
@@ -29,7 +35,7 @@ app.add_middleware(
         "X-CSRF-Token",
     ],
     expose_headers=["X-Total-Count", "X-Page-Count"],
-    max_age=600,  # Cache preflight requests for 10 minutes
+    max_age=600,
 )
 
 """

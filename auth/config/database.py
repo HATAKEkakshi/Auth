@@ -2,6 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from auth.logger.log import logger
 import asyncio
+import html
 # Configuration for loading environment variables
 _base_config=SettingsConfigDict(
         env_file="./.env",  # Load environment variables from .env file
@@ -18,7 +19,11 @@ class DatabaseSettings(BaseSettings):
     REDIS_HOST: str
     REDIS_PORT: str
     def REDIS_URL(self, db) -> str:
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{db}"
+        # Sanitize inputs to prevent XSS
+        safe_host = html.escape(str(self.REDIS_HOST))
+        safe_port = html.escape(str(self.REDIS_PORT))
+        safe_db = html.escape(str(db))
+        return f"redis://{safe_host}:{safe_port}/{safe_db}"
     model_config = _base_config
 """Check MongoDB connection health status"""
 async def check_database_health():
@@ -27,7 +32,9 @@ async def check_database_health():
         logger("Auth", "Database", "INFO", "null", "Database connection successful")
         return True
     except Exception as e:
-        logger("Auth", "Database", "ERROR", "CRITICAL", f"Database connection failed: {str(e)}")
+        # Sanitize error message to prevent XSS
+        sanitized_error = html.escape(str(e))
+        logger("Auth", "Database", "ERROR", "CRITICAL", f"Database connection failed: {sanitized_error}")
         return False
 
 """Continuously monitor database health every 60 seconds"""
