@@ -21,6 +21,6 @@ class NotificationSettings(BaseSettings):
     model_config = _base_config
 class AppSettings(BaseSettings):
         APP_NAME:str="Auth"
-        APP_DOMAIN:str="localhost:8000"
+        APP_DOMAIN:str="localhost:8006"
 notification_settings = NotificationSettings()
 app_settings = AppSettings()
