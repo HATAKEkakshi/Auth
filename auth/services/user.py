@@ -1,5 +1,5 @@
 from random import randint
-from fastapi import BackgroundTasks, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 from auth.config.notification import app_settings
 from auth.services.notifications import NotificationService
 from auth.config.redis import set_profile_data,get_profile_data,delete_profile_data
@@ -85,7 +85,6 @@ class UserService:
         request: Request,
         collection_name,
         redis_key_prefix: str,
-        tasks: BackgroundTasks,
         router_prefix: str
     ):
         try:
@@ -123,7 +122,6 @@ class UserService:
 
             # Send registration and verification emails
             self.notification_service.send_email_template(
-                tasks=tasks,
                 email=user_data.email,
                 subject="Registration Successful",
                 context={"name": user_data.first_name},
@@ -131,7 +129,6 @@ class UserService:
             )
 
             self.notification_service.send_email_template(
-                tasks=tasks,
                 email=user_data.email,
                 subject="Verify your email",
                 context={
@@ -246,7 +243,7 @@ class UserService:
 
 
     """Send password reset link via email"""
-    async def _send_password_reset_link(self, email: str, router_prefix: str, collection_name, tasks: BackgroundTasks):
+    async def _send_password_reset_link(self, email: str, router_prefix: str, collection_name):
         try:
             user = await collection_name.find_one({"email": email})
             if not user:
@@ -262,7 +259,6 @@ class UserService:
             )
 
             self.notification_service.send_email_template(
-                tasks,
                 email=email,
                 subject="Password Reset Request",
                 context={
@@ -283,7 +279,7 @@ class UserService:
 
 
     """Reset user password using token"""
-    async def reset_password(self, token: str, password: str, collection_name, request: Request, redis_key_prefix: str, tasks: BackgroundTasks):
+    async def reset_password(self, token: str, password: str, collection_name, request: Request, redis_key_prefix: str):
         try:
             token_data = decode_url_safe_token(token, salt=self.verification_salt)
             if not token_data:

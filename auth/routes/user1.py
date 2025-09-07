@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form
 from typing import Annotated
 from fastapi.templating import Jinja2Templates
 from fastapi.security import OAuth2PasswordRequestForm
@@ -21,8 +21,8 @@ async def get_user(id: str, request: Request, _: User1Dep):
 
 
 @user.post("/create")
-async def create_user(user_data: User, request: Request, tasks: BackgroundTasks):
-    return await user_service.create_user(user_data, request, tasks)
+async def create_user(user_data: User, request: Request):
+    return await user_service.create_user(user_data, request)
 
 
 @user.post("/login")
@@ -41,8 +41,8 @@ async def verify_email(token: str, request: Request):
 
 
 @user.get("/forget_password")
-async def forget_password(email: str, tasks: BackgroundTasks):
-    await user_service.forget_password(email, tasks)
+async def forget_password(email: str):
+    await user_service.forget_password(email)
     return {"message": "Password reset link sent to your email"}
 
 
@@ -62,10 +62,9 @@ async def reset_password_form(token: str, request: Request):
 async def reset_password(
     token: str,
     password: Annotated[str, Form()],
-    request: Request,
-    tasks: BackgroundTasks
+    request: Request
 ):
-    is_success = await user_service.reset_password_link(token, password, request, tasks)
+    is_success = await user_service.reset_password_link(token, password, request)
     return templates.TemplateResponse(
         request=request,
         name="reset_success.html" if is_success else "reset_failed.html"

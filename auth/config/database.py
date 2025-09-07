@@ -17,7 +17,8 @@ user2_collection_name=db["User2"]  # User2 collection for multi-user support
 class DatabaseSettings(BaseSettings):
     REDIS_HOST: str
     REDIS_PORT: str
-
+    def REDIS_URL(self, db) -> str:
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{db}"
     model_config = _base_config
 """Check MongoDB connection health status"""
 async def check_database_health():

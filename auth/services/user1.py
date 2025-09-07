@@ -1,4 +1,4 @@
-from fastapi import BackgroundTasks, Request
+from fastapi import Request
 from auth.model.model import User
 from auth.services.user import UserService
 from auth.config.database import user1_collection_name
@@ -10,13 +10,12 @@ class User1Service(UserService):
         self.redis_key_prefix = "user1"
         self.router_prefix = "User1"
 
-    async def create_user(self, user_data: User, request: Request, tasks: BackgroundTasks):
+    async def create_user(self, user_data: User, request: Request):
         return await self._add(
             user_data,
             request,
             self.collection_name,
             self.redis_key_prefix,
-            tasks,
             self.router_prefix
         )
 
@@ -55,22 +54,20 @@ class User1Service(UserService):
             self.redis_key_prefix
         )
 
-    async def forget_password(self, email: str, tasks: BackgroundTasks):
+    async def forget_password(self, email: str):
         return await self._send_password_reset_link(
             email=email,
             router_prefix=self.router_prefix,
-            collection_name=self.collection_name,
-            tasks=tasks
+            collection_name=self.collection_name
         )
 
-    async def reset_password_link(self, token: str, password: str, request: Request, tasks: BackgroundTasks):
+    async def reset_password_link(self, token: str, password: str, request: Request):
         return await self.reset_password(
             token,
             password,
             self.collection_name,
             request,
-            self.redis_key_prefix,
-            tasks
+            self.redis_key_prefix
         )
     async def generate_otp_phone(self, id, phone, request):
         return await self.generate_otp(

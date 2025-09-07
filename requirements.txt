@@ -13,3 +13,4 @@ fastapi-mail
 jinja2
 twilio
 scalar-fastapi
+celery
