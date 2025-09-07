@@ -32,6 +32,11 @@ class RedisPoolManager:
 
 _pool_manager = RedisPoolManager()
 
+"""Initialize Redis connection pool"""
+async def init_redis_pool():
+    await _pool_manager.get_pool()
+    logger("Auth", "Redis Pool", "INFO", "null", "Redis connection pool ready")
+
 """Get Redis client from connection pool"""
 async def get_redis_client():
     pool = await _pool_manager.get_pool()
@@ -59,7 +64,7 @@ async def get_profile_data(key: str) -> Optional[dict]:
             decrypted_data = CacheEncryptionService.decrypt_cache_data(encrypted_data)
             logger("Auth", "Redis Cache", "INFO", "null", f"Cache hit getting encrypted data for key from cache: {key}")
             return decrypted_data
-        logger("Auth", "Redis Cache", "WARN", "LOW", f"Cache miss for key: {key}")
+        logger("Auth", "Redis Cache", "INFO", "null", f"Cache miss for key: {key} (expected for new data)")
         return None
     except Exception as e:
         logger("Auth", "Redis Cache", "ERROR", "HIGH", "Redis decryption error")

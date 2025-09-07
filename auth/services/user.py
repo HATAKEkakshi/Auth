@@ -12,7 +12,7 @@ from auth.logger.log import logger
 from auth.config.bloom import bloom_service
 from auth.middleware.security import sanitize_input, validate_email, validate_password_strength
 from auth.model.encrypted_model import EncryptedUser
-from auth.security.encryption import encryption_service
+from auth.security.encryption import EncryptionService
 import json
 import html
 
@@ -66,11 +66,11 @@ class UserService:
                 logger("Auth", "User Service", "INFO", "null", f"User retrieved from encrypted cache by email: {email}")
                 return cached
 
-            # Search by encrypted email
-            encrypted_email = encryption_service.encrypt_email(email)
-            encrypted_user = await collection_name.find_one({"email_encrypted": encrypted_email})
+            # Search by email search hash
+            email_search_hash = EncryptionService.encrypt_email(email)
+            encrypted_user = await collection_name.find_one({"email_search_hash": email_search_hash})
             if not encrypted_user:
-                logger("Auth", "Database", "WARN", "MEDIUM", f"User not found in database by email")
+                logger("Auth", "Database", "INFO", "null", f"User lookup by email (expected during login/registration checks)")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"User with email not found"
@@ -173,14 +173,14 @@ class UserService:
             # Fast Bloom filter check first
             if bloom_service.is_email_registered(user_data.email):
                 # Bloom filter says "maybe" - check cache and database for confirmation
-                encrypted_email = encryption_service.encrypt_email(user_data.email)
-                if await get_profile_data(cache_key) or await collection_name.find_one({"email_encrypted": encrypted_email}):
+                email_search_hash = EncryptionService.encrypt_email(user_data.email)
+                if await get_profile_data(cache_key) or await collection_name.find_one({"email_search_hash": email_search_hash}):
                     logger("Auth", "User Service", "WARN", "LOW", f"User registration attempt with existing email")
                     return {"message": "Email already exists", "Email": "[ENCRYPTED]"}
             else:
-                # Check database with encrypted email
-                encrypted_email = encryption_service.encrypt_email(user_data.email)
-                if await collection_name.find_one({"email_encrypted": encrypted_email}):
+                # Check database with email search hash
+                email_search_hash = EncryptionService.encrypt_email(user_data.email)
+                if await collection_name.find_one({"email_search_hash": email_search_hash}):
                     # Bloom filter said "no" but email exists - add to filter for future
                     bloom_service.add_registered_email(user_data.email)
                     logger("Auth", "User Service", "WARN", "LOW", f"User registration attempt with existing email")
@@ -235,6 +235,7 @@ class UserService:
 
             # Update encrypted cache
             await delete_profile_data(f"{redis_key_prefix}:id:{user['id']}")
+            await delete_profile_data(f"{redis_key_prefix}:email:{user['email']}")
             await delete_profile_data(f"{redis_key_prefix}:{user['email']}")
             await set_profile_data(f"{redis_key_prefix}:{user['email']}", 3600, user)
 
@@ -248,28 +249,29 @@ class UserService:
 
 
 
-    """Delete user by CIN and clear cache"""
-    async def _delete_user(self, CIN: str, email: str, request: Request, collection_name, redis_key_prefix: str):
+    """Delete user by ID and clear cache"""
+    async def _delete_user(self, user_id: str, email: str, request: Request, collection_name, redis_key_prefix: str):
         try:
             # Clear cache first
-            await delete_profile_data(f"{redis_key_prefix}:CIN:{CIN}")
+            await delete_profile_data(f"{redis_key_prefix}:id:{user_id}")
+            await delete_profile_data(f"{redis_key_prefix}:email:{email}")
             await delete_profile_data(f"{redis_key_prefix}:{email}")
 
-            user = await collection_name.find_one({"CIN": CIN})
+            user = await collection_name.find_one({"id": user_id})
             if not user:
-                logger("Auth", "Database", "WARN", "MEDIUM", f"User not found for deletion: {CIN}")
+                logger("Auth", "Database", "WARN", "MEDIUM", f"User not found for deletion: {user_id}")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User with id {CIN} not found"
+                    detail=f"User with id {user_id} not found"
                 )
 
-            await collection_name.delete_one({"CIN": CIN})
-            logger("Auth", "Database", "INFO", "null", f"User deleted: {CIN}, {email}")
-            return {"message": f"User with CIN {CIN} and email {email} deleted successfully"}
+            await collection_name.delete_one({"id": user_id})
+            logger("Auth", "Database", "INFO", "null", f"User deleted: {user_id}, {email}")
+            return {"message": f"User with id {user_id} and email {email} deleted successfully"}
         except HTTPException:
             raise
         except Exception as e:
-            logger("Auth", "User Service", "ERROR", "ERROR", f"User deletion failed for {CIN}: {str(e)}")
+            logger("Auth", "User Service", "ERROR", "ERROR", f"User deletion failed for {user_id}: {str(e)}")
             raise HTTPException(status_code=500, detail="User deletion failed")
 
 
@@ -310,13 +312,19 @@ class UserService:
     """Send password reset link via email"""
     async def _send_password_reset_link(self, email: str, router_prefix: str, collection_name):
         try:
-            user = await collection_name.find_one({"email": email})
-            if not user:
+            # Search by encrypted email hash
+            email_search_hash = EncryptionService.encrypt_email(email)
+            encrypted_user = await collection_name.find_one({"email_search_hash": email_search_hash})
+            if not encrypted_user:
                 logger("Auth", "Database", "WARN", "LOW", f"Password reset requested for non-existent user: {email}")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User not found"
                 )
+
+            # Decrypt user data to get name
+            user_model = EncryptedUser(**encrypted_user)
+            user = user_model.to_plain_user()
 
             token = generate_url_safe_token(
                 {"id": user["id"]},
@@ -354,24 +362,33 @@ class UserService:
                     detail="Invalid or expired token"
                 )
 
-            user = await collection_name.find_one({"id": token_data["id"]})
-            if not user:
+            encrypted_user = await collection_name.find_one({"id": token_data["id"]})
+            if not encrypted_user:
                 logger("Auth", "Database", "WARN", "MEDIUM", f"User not found for password reset: {token_data['id']}")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User not found"
                 )
 
+            # Decrypt user data to get email for logging
+            user_model = EncryptedUser(**encrypted_user)
+            user = user_model.to_plain_user()
+
             # Update password in database
-            user["password"] = password_hash(password)
-            await collection_name.update_one({"id": user["id"]}, {"$set": {"password": user["password"]}})
+            hashed_password = password_hash(password)
+            await collection_name.update_one({"id": encrypted_user["id"]}, {"$set": {"password": hashed_password}})
             logger("Auth", "Database", "INFO", "null", f"Password reset completed for user: {user['email']}")
             
-            # Clear cache
-            await delete_profile_data(f"{redis_key_prefix}:id:{user['id']}")
-            await delete_profile_data(f"{redis_key_prefix}:{user['email']}")
+            # Update cache with new password using consistent keys
+            user["password"] = hashed_password
+            id_cache_key = f"{redis_key_prefix}:id:{user['id']}"
+            email_cache_key = f"{redis_key_prefix}:email:{user['email']}"
+            
+            await set_profile_data(id_cache_key, 3600, user)
+            await set_profile_data(email_cache_key, 3600, user)
+            logger("Auth", "Cache", "INFO", "null", f"Cache updated with new password for user: {user['email']}")
 
-            logger("Auth", "User Service", "INFO", "null", f"Password reset successful: {user['email']}")
+            logger("Auth", "User Service", "INFO", "null", f"Password reset successful with cache update: {user['email']}")
             return {"message": "Password reset successfully"}
         except HTTPException:
             raise

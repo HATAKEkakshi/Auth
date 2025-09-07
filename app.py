@@ -7,7 +7,8 @@ import httpx
 from fastapi import APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from auth.config.database import start_db_monitoring,db_settings
-from auth.config.redis import start_redis_monitoring
+from auth.config.redis import start_redis_monitoring, init_redis_pool, check_redis_health
+from auth.config.database import check_database_health
 from auth.middleware.security import SecurityMiddleware
 
 
@@ -58,15 +59,27 @@ app.include_router(master_router)
 
 @app.on_event("startup")
 async def startup():
-    app.state.redis = Redis(host=db_settings.REDIS_HOST, port=db_settings.REDIS_PORT, decode_responses=True)
+    # Initialize Redis connection pool
+    await init_redis_pool()
     app.state.http_client = httpx.AsyncClient()
     start_db_monitoring() # Start monitoring the database
     start_redis_monitoring() # Start monitoring Redis
 
 @app.on_event("shutdown")
 async def shutdown():
-    await app.state.redis.close()
     await app.state.http_client.aclose()
+@app.get("/health")
+async def health_check():
+    """System health check endpoint"""
+    db_healthy = await check_database_health()
+    redis_healthy = await check_redis_health()
+    
+    return {
+        "status": "healthy" if db_healthy and redis_healthy else "unhealthy",
+        "database": "healthy" if db_healthy else "unhealthy",
+        "redis": "healthy" if redis_healthy else "unhealthy"
+    }
+
 @app.get("/scalar", include_in_schema=False)
 def get_scalar_docs():
     return get_scalar_api_reference(

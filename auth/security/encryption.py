@@ -5,22 +5,32 @@ import base64
 import os
 from typing import Optional
 from auth.logger.log import logger
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class EncryptionService:
     """AES-256 encryption service for sensitive data"""
     
-    def __init__(self):
-        self.key = self._get_or_create_key()
-        self.cipher = Fernet(self.key)
-        logger("Auth", "Encryption", "INFO", "null", "EncryptionService initialized")
+    _key = None
+    _cipher = None
     
-    def _get_or_create_key(self) -> bytes:
+    @classmethod
+    def reset(cls):
+        """Reset cached key and cipher"""
+        cls._key = None
+        cls._cipher = None
+    
+    @classmethod
+    def _get_or_create_key(cls) -> bytes:
         """Get encryption key from environment or generate new one"""
         try:
             # Try to get key from environment
             key_b64 = os.getenv('ENCRYPTION_KEY')
             if key_b64:
-                return base64.urlsafe_b64decode(key_b64.encode())
+                # Return the key as bytes for Fernet (it expects base64 string)
+                return key_b64.encode()
             
             # Generate new key if not found
             key = Fernet.generate_key()
@@ -30,64 +40,65 @@ class EncryptionService:
             logger("Auth", "Encryption", "ERROR", "CRITICAL", f"Key generation failed: {str(e)}")
             raise
     
-    def encrypt(self, data: str) -> str:
+    @classmethod
+    def _get_cipher(cls):
+        """Get or create cipher instance"""
+        if cls._cipher is None:
+            cls._key = cls._get_or_create_key()
+            # Fernet expects the key as string, not bytes
+            key_str = cls._key.decode() if isinstance(cls._key, bytes) else cls._key
+            cls._cipher = Fernet(key_str)
+            logger("Auth", "Encryption", "INFO", "null", "EncryptionService initialized")
+        return cls._cipher
+    
+    @staticmethod
+    def encrypt_data(data: str) -> str:
         """Encrypt string data"""
         try:
             if not data:
                 return ""
-            encrypted = self.cipher.encrypt(data.encode())
+            cipher = EncryptionService._get_cipher()
+            encrypted = cipher.encrypt(data.encode())
             return base64.urlsafe_b64encode(encrypted).decode()
         except Exception as e:
-            logger("Auth", "Encryption", "ERROR", "ERROR", f"Encryption failed: {str(e)}")
+            logger("Auth", "Encryption", "ERROR", "CRITICAL", f"Encryption failed: {str(e)}")
             raise
     
-    def decrypt(self, encrypted_data: str) -> str:
+    @staticmethod
+    def decrypt_data(encrypted_data: str) -> str:
         """Decrypt string data"""
         try:
             if not encrypted_data:
                 return ""
+            cipher = EncryptionService._get_cipher()
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_data.encode())
-            decrypted = self.cipher.decrypt(encrypted_bytes)
+            decrypted = cipher.decrypt(encrypted_bytes)
             return decrypted.decode()
         except Exception as e:
-            logger("Auth", "Encryption", "ERROR", "ERROR", f"Decryption failed: {str(e)}")
+            logger("Auth", "Encryption", "ERROR", "CRITICAL", f"Decryption failed: {str(e)}")
             raise
     
-    def encrypt_email(self, email: str) -> str:
+    @staticmethod
+    def encrypt_email(email: str) -> str:
         """Encrypt email with deterministic encryption for searching"""
         try:
-            # Use PBKDF2 for deterministic encryption of emails (for search)
-            # Generate salt from environment or use secure default
+            # Use simple hash for deterministic email encryption (for search only)
             salt_source = os.getenv('EMAIL_SALT', 'auth_system_email_salt_2024')
-            salt = salt_source.encode()[:16].ljust(16, b'0')  # Ensure 16 bytes
+            salt = salt_source.encode()
+            
+            # Create deterministic hash using PBKDF2
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
                 length=32,
                 salt=salt,
                 iterations=100000,
             )
-            key = base64.urlsafe_b64encode(kdf.derive(email.lower().encode()))
-            cipher = Fernet(key)
-            encrypted = cipher.encrypt(email.encode())
-            return base64.urlsafe_b64encode(encrypted).decode()
+            # Use email as input for deterministic result
+            email_hash = kdf.derive(email.lower().encode())
+            return base64.urlsafe_b64encode(email_hash).decode()
         except Exception as e:
-            logger("Auth", "Encryption", "ERROR", "ERROR", f"Email encryption failed: {str(e)}")
-            raise
-    
-    def decrypt_email(self, encrypted_email: str) -> str:
-        """Decrypt email (requires original email for key derivation)"""
-        try:
-            if not encrypted_email:
-                return ""
-            # Note: This is for deterministic decryption - in practice, 
-            # you'd store a mapping or use the search functionality
-            encrypted_bytes = base64.urlsafe_b64decode(encrypted_email.encode())
-            # This method requires the original email to derive the key
-            # In practice, use search by encrypted email instead
-            return encrypted_email  # Placeholder - implement search logic
-        except Exception as e:
-            logger("Auth", "Encryption", "ERROR", "ERROR", f"Email decryption failed: {str(e)}")
+            logger("Auth", "Encryption", "ERROR", "CRITICAL", f"Email encryption failed: {str(e)}")
             raise
 
-# Global encryption service
+# Global encryption service instance
 encryption_service = EncryptionService()

@@ -62,18 +62,23 @@ class SecurityMiddleware(BaseHTTPMiddleware):
     
     def _is_auth_endpoint(self, path: str) -> bool:
         """Check if the request is for authentication endpoints using patterns"""
-        # Use pattern matching instead of absolute paths for portability
-        auth_patterns = [
-            "login", "create", "verify", "forget_password", 
-            "reset_password", "otp_phone", "verify_otp_phone"
+        # Public endpoints that don't require authentication
+        public_endpoints = [
+            "/User1/", "/User2/",
+            "/User1/create", "/User2/create",
+            "/User1/login", "/User2/login",
+            "/User1/verify", "/User2/verify",
+            "/User1/forget_password", "/User2/forget_password",
+            "/User1/reset_password", "/User2/reset_password",
+            "/User1/reset_password_form", "/User2/reset_password_form",
+            "/User1/otp_phone", "/User2/otp_phone",
+            "/User1/verify_otp_phone", "/User2/verify_otp_phone",
+            "/health",
+            "/User1/logout", "/User2/logout",
+            "/User1/delete", "/User2/delete"
         ]
         
-        # Check if path matches User1 or User2 auth patterns
-        if path.startswith("/User1/") or path.startswith("/User2/"):
-            endpoint = path.split("/")[-1]  # Get last part of path
-            return endpoint in auth_patterns or path.endswith("/User1/") or path.endswith("/User2/")
-        
-        return False
+        return path in public_endpoints
     
     def _get_client_ip(self, request: Request) -> str:
         """Get client IP address safely"""
