@@ -4,7 +4,7 @@ from itsdangerous import BadSignature,Serializer,URLSafeSerializer,URLSafeTimedS
 from fastapi import HTTPException, status
 import jwt
 from uuid import uuid4
-from config.secert import security_settings
+from auth.config.secert import security_settings
 from phonenumbers.phonenumberutil import region_code_for_country_code
 import pycountry
 from passlib.context import CryptContext

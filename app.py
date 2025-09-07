@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from scalar_fastapi import get_scalar_api_reference
-from routes.user1 import user as user1_router
-from routes.user2 import user as user2_router
+from auth.routes.user1 import user as user1_router
+from auth.routes.user2 import user as user2_router
 from redis.asyncio import Redis
 import httpx
 from fastapi import APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+from auth.config.database import start_db_monitoring,db_settings
+from auth.config.redis import start_redis_monitoring
 
 
 app=FastAPI()
@@ -48,8 +50,10 @@ app.include_router(master_router)
 
 @app.on_event("startup")
 async def startup():
-    app.state.redis = Redis(host="localhost", port=6379, decode_responses=True)
+    app.state.redis = Redis(host=db_settings.REDIS_HOST, port=db_settings.REDIS_PORT, decode_responses=True)
     app.state.http_client = httpx.AsyncClient()
+    start_db_monitoring() # Start monitoring the database
+    start_redis_monitoring() # Start monitoring Redis
 
 @app.on_event("shutdown")
 async def shutdown():

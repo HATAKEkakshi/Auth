@@ -1,7 +1,7 @@
 from fastapi import BackgroundTasks, Request
-from model.model import User
-from .user import UserService
-from config.database import user2_collection_name
+from auth.model.model import User
+from auth.services.user import UserService
+from auth.config.database import user2_collection_name
 
 class User2Service(UserService):
     def __init__(self, model: User):

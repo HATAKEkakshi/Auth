@@ -1,10 +1,10 @@
-from core.security import oauth2_scheme
-from model.model import User
-from config.redis import is_jti_blacklisted
+from auth.core.security import oauth2_scheme
+from auth.model.model import User
+from auth.config.redis import is_jti_blacklisted
 from fastapi import Depends, HTTPException, status
 from typing import Annotated
-from helper.utils import decode_access_token
-from config.database import user1_collection_name,user2_collection_name
+from auth.helper.utils import decode_access_token
+from auth.config.database import user1_collection_name,user2_collection_name
 async def get_access_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     data = decode_access_token(token)
     if data is None or await is_jti_blacklisted(data["jti"]):

@@ -2,16 +2,16 @@ from fastapi import APIRouter, BackgroundTasks, Request, Depends, Form
 from typing import Annotated
 from fastapi.templating import Jinja2Templates
 from fastapi.security import OAuth2PasswordRequestForm
-from model.model import User
-from config.redis import add_jti_to_blacklist
-from Dependenices.dependencies import get_access_token, User1Dep
-from services.user1 import User1Service
-from helper.utils import TEMPLATE_DIR
-from config.notification import app_settings
+from auth.model.model import User
+from auth.config.redis import add_jti_to_blacklist
+from auth.Dependenices.dependencies import get_access_token, User1Dep
+from auth.services.user2 import User2Service
+from auth.helper.utils import TEMPLATE_DIR
+from auth.config.notification import app_settings
 
-user = APIRouter(prefix="/User1", tags=["User1"])
+user = APIRouter(prefix="/User2", tags=["User2"])
 
-user_service = User1Service(model=User)
+user_service = User2Service(model=User)
 templates = Jinja2Templates(TEMPLATE_DIR)
 
 

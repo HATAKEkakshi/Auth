@@ -1,8 +1,8 @@
 from random import randint
 from fastapi import BackgroundTasks, HTTPException, Request, status
-from config.notification import app_settings
-from services.notifications import NotificationService
-from helper.utils import (
+from auth.config.notification import app_settings
+from auth.services.notifications import NotificationService
+from auth.helper.utils import (
     generate_country, id_generator, password_hash,
     password_context, generate_access_token,
     generate_url_safe_token, decode_url_safe_token,generate_otp_token, decode_otp_token
