@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any
 import json
 import asyncio
 from auth.config.database import db_settings
-from logger.log import logger
+from auth.logger.log import logger
 
 async def get_redis_client():
     return Redis(

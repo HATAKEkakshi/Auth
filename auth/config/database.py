@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from logger.log import logger
+from auth.logger.log import logger
 import asyncio
 _base_config=SettingsConfigDict(
         env_file="./.env",  # ✅ make sure .env is in root or adjust path
