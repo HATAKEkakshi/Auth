@@ -22,7 +22,7 @@ class SecuritySettings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     
     # CORS Settings
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "https://yourdomain.com"]
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "https://yourdomain.com","http://localhost:8006"]
     ALLOWED_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
     
     # Security Headers

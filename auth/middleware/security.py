@@ -21,6 +21,12 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         # Get client IP
         client_ip = self._get_client_ip(request)
         
+        # Skip security checks for documentation and auth endpoints
+        if self._is_docs_endpoint(request.url.path) or self._is_auth_endpoint(request.url.path):
+            response = await call_next(request)
+            self._add_security_headers(response)
+            return response
+        
         # Rate limiting
         if self._is_rate_limited(client_ip):
             logger("Auth", "Security", "WARN", "HIGH", f"Rate limit exceeded for IP: {client_ip}")
@@ -44,6 +50,29 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         self._add_security_headers(response)
         
         return response
+    
+    def _is_docs_endpoint(self, path: str) -> bool:
+        """Check if the request is for documentation endpoints"""
+        docs_paths = [
+            "/docs", "/redoc", "/openapi.json", "/scalar",
+            "/docs/oauth2-redirect", "/docs/swagger-ui-bundle.js",
+            "/docs/swagger-ui-standalone-preset.js", "/docs/swagger-ui.css"
+        ]
+        return any(path.startswith(doc_path) for doc_path in docs_paths)
+    
+    def _is_auth_endpoint(self, path: str) -> bool:
+        """Check if the request is for authentication endpoints"""
+        auth_paths = [
+            "/User1/", "/User2/",
+            "/User1/login", "/User2/login",
+            "/User1/create", "/User2/create",
+            "/User1/verify", "/User2/verify",
+            "/User1/forget_password", "/User2/forget_password",
+            "/User1/reset_password", "/User2/reset_password",
+            "/User1/otp_phone", "/User2/otp_phone",
+            "/User1/verify_otp_phone", "/User2/verify_otp_phone"
+        ]
+        return path in auth_paths
     
     def _get_client_ip(self, request: Request) -> str:
         """Get client IP address safely"""

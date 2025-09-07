@@ -20,7 +20,9 @@ app.add_middleware(SecurityMiddleware, rate_limit_requests=100, rate_limit_windo
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # Restrict to specific origins
+        "http://localhost:3000",
+        "http://localhost:8006", 
+        "http://127.0.0.1:8006",
         "https://yourdomain.com",
     ],
     allow_credentials=True,
