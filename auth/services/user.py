@@ -9,6 +9,7 @@ from auth.helper.utils import (
     generate_url_safe_token, decode_url_safe_token,generate_otp_token, decode_otp_token
 )
 from auth.logger.log import logger
+from auth.config.bloom import bloom_service
 import json
 
 
@@ -90,8 +91,15 @@ class UserService:
         try:
             cache_key = f"{redis_key_prefix}:{user_data.email}"
 
-            # Check if user already exists
-            if await get_profile_data(cache_key) or await collection_name.find_one({"email": user_data.email}):
+            # Fast Bloom filter check first
+            if bloom_service.is_email_registered(user_data.email):
+                # Bloom filter says "maybe" - check cache and database for confirmation
+                if await get_profile_data(cache_key) or await collection_name.find_one({"email": user_data.email}):
+                    logger("Auth", "User Service", "WARN", "LOW", f"User registration attempt with existing email: {user_data.email}")
+                    return {"message": "Email already exists", "Email": user_data.email}
+            elif await collection_name.find_one({"email": user_data.email}):
+                # Bloom filter said "no" but email exists - add to filter for future
+                bloom_service.add_registered_email(user_data.email)
                 logger("Auth", "User Service", "WARN", "LOW", f"User registration attempt with existing email: {user_data.email}")
                 return {"message": "Email already exists", "Email": user_data.email}
 
@@ -108,6 +116,9 @@ class UserService:
             # Insert user into database
             await collection_name.insert_one(user_dict)
             logger("Auth", "Database", "INFO", "null", f"New user created in database: {user_data.email}")
+            
+            # Add email to Bloom filter for future fast lookups
+            bloom_service.add_registered_email(user_data.email)
             
             user_dict.pop("_id", None)
             key = f"{redis_key_prefix}:id:{user_id}"

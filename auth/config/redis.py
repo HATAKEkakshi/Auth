@@ -4,6 +4,7 @@ import json
 import asyncio
 from auth.config.database import db_settings
 from auth.logger.log import logger
+from auth.config.bloom import bloom_service
 """Create Redis client connection"""
 async def get_redis_client():
     return Redis(
@@ -52,29 +53,41 @@ async def delete_profile_data(key: str):
     finally:
         await redis_client.close()
 
-"""Add JWT token to blacklist for logout security"""
+"""Add JWT token to blacklist with Bloom filter optimization"""
 async def add_jti_to_blacklist(jti: str):
     redis_client = await get_redis_client()
     try:
+        # Add to both Bloom filter and Redis
+        bloom_service.add_blacklisted_token(jti)
         await redis_client.set(jti, "blacklisted")
-        logger("Auth", "Redis Cache", "INFO", "null", f"Added JTI to blacklist: {jti}")
+        logger("Auth", "Redis Cache", "INFO", "null", f"Token blacklisted with Bloom filter: {jti[:10]}...")
     except Exception as e:
-        logger("Auth", "Redis Cache", "ERROR", "ERROR", f"Redis error: {e}")
+        logger("Auth", "Redis Cache", "ERROR", "ERROR", f"Failed to blacklist token: {str(e)}")
+        raise
     finally:
         await redis_client.close()
 
-"""Check if JWT token is blacklisted"""
+"""Check if JWT token is blacklisted using Bloom filter first"""
 async def is_jti_blacklisted(jti: str) -> bool:
-    redis_client = await get_redis_client()
     try:
-        exists = await redis_client.exists(jti)
-        logger("Auth", "Redis Cache", "INFO", "null", f"Checked JTI in blacklist: {jti}, Exists: {exists}")
-        return exists == 1
+        # Fast Bloom filter check first
+        if not bloom_service.is_token_blacklisted(jti):
+            # Definitely not blacklisted
+            return False
+        
+        # Bloom filter says "maybe" - check Redis for confirmation
+        redis_client = await get_redis_client()
+        try:
+            exists = await redis_client.exists(jti)
+            result = exists == 1
+            if result:
+                logger("Auth", "Redis Cache", "WARN", "HIGH", f"Confirmed blacklisted token: {jti[:10]}...")
+            return result
+        finally:
+            await redis_client.close()
     except Exception as e:
-        logger("Auth", "Redis Cache", "ERROR", "ERROR", f"Redis error: {e}")
+        logger("Auth", "Redis Cache", "ERROR", "ERROR", f"Token blacklist check failed: {str(e)}")
         return False
-    finally:
-        await redis_client.close()
 
 """Check Redis connection health status"""
 async def check_redis_health():
