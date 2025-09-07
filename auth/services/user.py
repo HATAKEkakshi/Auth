@@ -11,6 +11,8 @@ from auth.helper.utils import (
 from auth.logger.log import logger
 from auth.config.bloom import bloom_service
 from auth.middleware.security import sanitize_input, validate_email, validate_password_strength
+from auth.model.encrypted_model import EncryptedUser
+from auth.security.encryption import encryption_service
 import json
 import html
 
@@ -33,17 +35,20 @@ class UserService:
                 logger("Auth", "User Service", "INFO", "null", f"User retrieved from cache: {id}")
                 return json.loads(cached)
 
-            user = await collection_name.find_one({"id": id})
-            if not user:
+            encrypted_user = await collection_name.find_one({"id": id})
+            if not encrypted_user:
                 logger("Auth", "Database", "WARN", "MEDIUM", f"User not found in database: {id}")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"User with id {id} not found"
                 )
 
-            user.pop("_id", None)
+            encrypted_user.pop("_id", None)
+            # Decrypt user data before caching and returning
+            user_model = EncryptedUser(**encrypted_user)
+            user = user_model.to_plain_user()
             await set_profile_data(cache_key, 3600, json.dumps(user))
-            logger("Auth", "Database", "INFO", "null", f"User retrieved from database and cached: {id}")
+            logger("Auth", "Database", "INFO", "null", f"User retrieved, decrypted and cached: {id}")
             return user
         except HTTPException:
             raise
@@ -61,17 +66,22 @@ class UserService:
                 logger("Auth", "User Service", "INFO", "null", f"User retrieved from cache by email: {email}")
                 return json.loads(cached)
 
-            user = await collection_name.find_one({"email": email})
-            if not user:
-                logger("Auth", "Database", "WARN", "MEDIUM", f"User not found in database by email: {email}")
+            # Search by encrypted email
+            encrypted_email = encryption_service.encrypt_email(email)
+            encrypted_user = await collection_name.find_one({"email_encrypted": encrypted_email})
+            if not encrypted_user:
+                logger("Auth", "Database", "WARN", "MEDIUM", f"User not found in database by email")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User with email {email} not found"
+                    detail=f"User with email not found"
                 )
 
-            user.pop("_id", None)
+            encrypted_user.pop("_id", None)
+            # Decrypt user data before caching and returning
+            user_model = EncryptedUser(**encrypted_user)
+            user = user_model.to_plain_user()
             await set_profile_data(cache_key, 3600, json.dumps(user))
-            logger("Auth", "Database", "INFO", "null", f"User retrieved from database by email and cached: {email}")
+            logger("Auth", "Database", "INFO", "null", f"User retrieved by encrypted email, decrypted and cached")
             return user
         except HTTPException:
             raise
@@ -97,6 +107,26 @@ class UserService:
         user_data.email = sanitize_input(user_data.email.lower())
         
         return user_data
+    
+    async def _create_encrypted_user(self, user_dict: dict, user_id: str, collection_name, redis_key_prefix: str, cache_key: str):
+        """Create encrypted user and store in database and cache"""
+        # Create encrypted user model
+        encrypted_user = EncryptedUser.from_plain_user(user_dict, user_id)
+        
+        # Insert encrypted user into database
+        await collection_name.insert_one(encrypted_user.to_dict())
+        logger("Auth", "Database", "INFO", "null", f"New encrypted user created in database")
+        
+        # Add email to Bloom filter for future fast lookups
+        bloom_service.add_registered_email(user_dict["email"])
+        
+        # Cache plain user data (encrypted in database)
+        plain_user = encrypted_user.to_plain_user()
+        key = f"{redis_key_prefix}:id:{user_id}"
+        await set_profile_data(cache_key, 3600, json.dumps(plain_user))
+        await set_profile_data(key, 3600, json.dumps(plain_user))
+        
+        return encrypted_user
     
     def _send_registration_emails(self, user_data, user_id: str, router_prefix: str):
         """Send registration and verification emails"""
@@ -143,14 +173,18 @@ class UserService:
             # Fast Bloom filter check first
             if bloom_service.is_email_registered(user_data.email):
                 # Bloom filter says "maybe" - check cache and database for confirmation
-                if await get_profile_data(cache_key) or await collection_name.find_one({"email": user_data.email}):
-                    logger("Auth", "User Service", "WARN", "LOW", f"User registration attempt with existing email: {user_data.email}")
-                    return {"message": "Email already exists", "Email": user_data.email}
-            elif await collection_name.find_one({"email": user_data.email}):
-                # Bloom filter said "no" but email exists - add to filter for future
-                bloom_service.add_registered_email(user_data.email)
-                logger("Auth", "User Service", "WARN", "LOW", f"User registration attempt with existing email: {user_data.email}")
-                return {"message": "Email already exists", "Email": user_data.email}
+                encrypted_email = encryption_service.encrypt_email(user_data.email)
+                if await get_profile_data(cache_key) or await collection_name.find_one({"email_encrypted": encrypted_email}):
+                    logger("Auth", "User Service", "WARN", "LOW", f"User registration attempt with existing email")
+                    return {"message": "Email already exists", "Email": "[ENCRYPTED]"}
+            else:
+                # Check database with encrypted email
+                encrypted_email = encryption_service.encrypt_email(user_data.email)
+                if await collection_name.find_one({"email_encrypted": encrypted_email}):
+                    # Bloom filter said "no" but email exists - add to filter for future
+                    bloom_service.add_registered_email(user_data.email)
+                    logger("Auth", "User Service", "WARN", "LOW", f"User registration attempt with existing email")
+                    return {"message": "Email already exists", "Email": "[ENCRYPTED]"}
 
             # Hash password and enrich data
             user_data.password = password_hash(user_data.password)
@@ -162,17 +196,9 @@ class UserService:
                 "is_email_verified": False
             })
 
-            # Insert user into database
-            await collection_name.insert_one(user_dict)
-            logger("Auth", "Database", "INFO", "null", f"New user created in database: {user_data.email}")
-            
-            # Add email to Bloom filter for future fast lookups
-            bloom_service.add_registered_email(user_data.email)
-            
-            user_dict.pop("_id", None)
-            key = f"{redis_key_prefix}:id:{user_id}"
-            await set_profile_data(cache_key, 3600, json.dumps(user_dict))
-            await set_profile_data(key, 3600, json.dumps(user_dict))
+            # Create and store encrypted user
+            encrypted_user = await self._create_encrypted_user(user_dict, user_id, collection_name, redis_key_prefix, cache_key)
+            plain_user = encrypted_user.to_plain_user()
 
             # Send registration emails
             self._send_registration_emails(user_data, user_id, router_prefix)
