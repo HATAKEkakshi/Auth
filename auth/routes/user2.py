@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.model.model import User
 from auth.config.redis import add_jti_to_blacklist
-from auth.Dependenices.dependencies import get_access_token, User1Dep
+from auth.Dependenices.dependencies import get_user2_access_token, User1Dep
 from auth.services.user2 import User2Service
 from auth.helper.utils import TEMPLATE_DIR
 from auth.config.notification import app_settings
@@ -78,7 +78,7 @@ async def otp_phone(id:str,phone: str, request: Request):
 async def verify_otp_phone(token: str, otp: int, request: Request):
     return await user_service.verify_otp_phone(token, otp, request)
 @user.get("/logout")
-async def logout(token_data: Annotated[dict, Depends(get_access_token)]):
+async def logout(token_data: Annotated[dict, Depends(get_user2_access_token)]):
     await add_jti_to_blacklist(token_data["jti"])
     return {"message": "Logout successfully"}
 
