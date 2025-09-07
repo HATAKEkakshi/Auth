@@ -19,7 +19,7 @@ A **production-grade authentication system** built with FastAPI, featuring enter
 
 ### ⚡ **Performance & Scalability**
 - **Bloom Filter Optimization**: 1000x faster email lookups
-- **Redis Caching**: Sub-millisecond data access
+- **Encrypted Redis Caching**: AES-256 encrypted cache with sub-millisecond access
 - **Async Processing**: Celery background task queue
 - **Health Monitoring**: Real-time system health checks
 - **Multi-User Architecture**: Horizontal scaling support
@@ -47,7 +47,7 @@ A **production-grade authentication system** built with FastAPI, featuring enter
 
 ### **Data & Caching**
 - **MongoDB**: Document database with Motor async driver
-- **Redis**: In-memory caching and session storage
+- **Redis**: AES-256 encrypted in-memory caching and session storage
 - **Bloom Filters**: Probabilistic data structures for performance
 
 ### **Communication**
@@ -341,13 +341,15 @@ graph TB
     USER2["👥 User2 Service<br/>Secondary User Management"]
     NOTIF["📧 Notification Service<br/>Email/SMS with Templates"]
     
-    %% Data Layer
-    ENCRYPT["🔒 Encryption Service<br/>AES-256 Field Encryption"]
+    %% Encryption Layer
+    ENCRYPT["🔒 Field Encryption Service<br/>AES-256 Database Encryption"]
+    CACHE_ENC["🔐 Cache Encryption Service<br/>AES-256 Redis Encryption"]
     BLOOM["🌸 Bloom Filter Service<br/>1000x Faster Lookups"]
     
-    %% Storage Layer
+    %% Storage Layer with Connection Pooling
     MONGO[("📊 MongoDB<br/>Encrypted Document Store")]
-    REDIS[("⚡ Redis Cache<br/>Session & Token Store")]
+    REDIS_POOL["⚡ Redis Connection Pool<br/>Thread-Safe Singleton"]
+    REDIS[("🔒 Redis Cache<br/>AES-256 Encrypted Cache")]
     
     %% Background Processing
     CELERY["⚙️ Celery Workers<br/>Background Task Queue"]
@@ -365,8 +367,12 @@ graph TB
     API --> SEC
     SEC --> USER1
     SEC --> USER2
+    
+    %% Service to Encryption Layer
     USER1 --> ENCRYPT
     USER2 --> ENCRYPT
+    USER1 --> CACHE_ENC
+    USER2 --> CACHE_ENC
     USER1 --> BLOOM
     USER2 --> BLOOM
     USER1 --> NOTIF
@@ -374,8 +380,10 @@ graph TB
     
     %% Storage Connections
     ENCRYPT --> MONGO
-    BLOOM --> REDIS
-    SEC --> REDIS
+    CACHE_ENC --> REDIS_POOL
+    REDIS_POOL --> REDIS
+    BLOOM --> REDIS_POOL
+    SEC --> REDIS_POOL
     
     %% Background Processing
     NOTIF --> CELERY
@@ -386,6 +394,7 @@ graph TB
     %% Monitoring
     API --> MONITOR
     CELERY --> MONITOR
+    REDIS_POOL --> MONITOR
     
     %% Styling
     classDef client fill:#e1f5fe
@@ -393,12 +402,14 @@ graph TB
     classDef service fill:#f3e5f5
     classDef storage fill:#e8f5e8
     classDef external fill:#fff3e0
+    classDef encryption fill:#fce4ec
     
     class Client client
-    class LB,WAF,SEC,ENCRYPT security
+    class LB,WAF,SEC security
     class API,USER1,USER2,NOTIF,BLOOM service
-    class MONGO,REDIS storage
+    class MONGO,REDIS,REDIS_POOL storage
     class EMAIL,SMS,MONITOR,CELERY,BEAT external
+    class ENCRYPT,CACHE_ENC encryption
 ```
 
 ### **📁 Directory Structure**
@@ -407,6 +418,7 @@ graph TB
 auth/
 ├── 🔐 security/                 # Security Layer
 │   ├── encryption.py            # AES-256 field-level encryption
+│   ├── cache_encryption.py      # AES-256 Redis cache encryption
 │   └── template_validator.py    # XSS protection for templates
 ├── 🛡️ middleware/               # Security Middleware
 │   └── security.py              # Rate limiting, input validation
@@ -477,12 +489,19 @@ auth/
    └── User Session Verification
 
 3. 💾 Data Processing
-   ├── AES-256 Field Encryption
+   ├── AES-256 Field Encryption (Database)
+   ├── AES-256 Cache Encryption (Redis)
    ├── Deterministic Email Encryption
-   └── Secure Database Storage
+   └── Connection Pool Management
 
-4. 📤 Response Generation
+4. 🗄️ Storage Operations
+   ├── Encrypted Database Storage (MongoDB)
+   ├── Encrypted Cache Storage (Redis)
+   └── Bloom Filter Optimization
+
+5. 📤 Response Generation
    ├── Data Decryption (if authorized)
+   ├── Cache Decryption (if cached)
    ├── Security Headers Addition
    └── Audit Log Creation
 ```
@@ -507,7 +526,7 @@ auth/
 
 **Optimization Strategy:**
 - 🌸 **Bloom Filters**: 1000x faster email existence checks
-- ⚡ **Redis Caching**: Sub-millisecond data access
+- ⚡ **Encrypted Redis Caching**: AES-256 encrypted cache with sub-millisecond access
 - 🔄 **Async Processing**: Non-blocking I/O operations
 - 📊 **Connection Pooling**: Efficient database connections
 - 🎯 **Lazy Loading**: On-demand resource initialization
@@ -538,7 +557,7 @@ auth/
                               │
 ┌─────────────────────────────────────────────────────────────┐
 │                     💾 DATA LAYER                          │
-│  MongoDB (Encrypted) + Redis (Cache) + Bloom Filters       │
+│  MongoDB (Encrypted) + Redis (AES-256 Cache) + Bloom Filters │
 └─────────────────────────────────────────────────────────────┘
 ```
 

@@ -32,8 +32,8 @@ class UserService:
             cache_key = f"{redis_key_prefix}:id:{id}"
             cached = await get_profile_data(cache_key)
             if cached:
-                logger("Auth", "User Service", "INFO", "null", f"User retrieved from cache: {id}")
-                return json.loads(cached)
+                logger("Auth", "User Service", "INFO", "null", f"User retrieved from encrypted cache: {id}")
+                return cached
 
             encrypted_user = await collection_name.find_one({"id": id})
             if not encrypted_user:
@@ -47,8 +47,8 @@ class UserService:
             # Decrypt user data before caching and returning
             user_model = EncryptedUser(**encrypted_user)
             user = user_model.to_plain_user()
-            await set_profile_data(cache_key, 3600, json.dumps(user))
-            logger("Auth", "Database", "INFO", "null", f"User retrieved, decrypted and cached: {id}")
+            await set_profile_data(cache_key, 3600, user)
+            logger("Auth", "Database", "INFO", "null", f"User retrieved, decrypted and cached encrypted: {id}")
             return user
         except HTTPException:
             raise
@@ -63,8 +63,8 @@ class UserService:
             cache_key = f"{redis_key_prefix}:email:{email}"
             cached = await get_profile_data(cache_key)
             if cached:
-                logger("Auth", "User Service", "INFO", "null", f"User retrieved from cache by email: {email}")
-                return json.loads(cached)
+                logger("Auth", "User Service", "INFO", "null", f"User retrieved from encrypted cache by email: {email}")
+                return cached
 
             # Search by encrypted email
             encrypted_email = encryption_service.encrypt_email(email)
@@ -80,8 +80,8 @@ class UserService:
             # Decrypt user data before caching and returning
             user_model = EncryptedUser(**encrypted_user)
             user = user_model.to_plain_user()
-            await set_profile_data(cache_key, 3600, json.dumps(user))
-            logger("Auth", "Database", "INFO", "null", f"User retrieved by encrypted email, decrypted and cached")
+            await set_profile_data(cache_key, 3600, user)
+            logger("Auth", "Database", "INFO", "null", f"User retrieved by encrypted email, decrypted and cached encrypted")
             return user
         except HTTPException:
             raise
@@ -120,11 +120,11 @@ class UserService:
         # Add email to Bloom filter for future fast lookups
         bloom_service.add_registered_email(user_dict["email"])
         
-        # Cache plain user data (encrypted in database)
+        # Cache plain user data (encrypted in Redis cache)
         plain_user = encrypted_user.to_plain_user()
         key = f"{redis_key_prefix}:id:{user_id}"
-        await set_profile_data(cache_key, 3600, json.dumps(plain_user))
-        await set_profile_data(key, 3600, json.dumps(plain_user))
+        await set_profile_data(cache_key, 3600, plain_user)
+        await set_profile_data(key, 3600, plain_user)
         
         return encrypted_user
     
@@ -233,10 +233,10 @@ class UserService:
             await collection_name.update_one({"id": user["id"]}, {"$set": {"is_email_verified": True}})
             logger("Auth", "Database", "INFO", "null", f"Email verified for user: {user['email']}")
 
-            # Update cache
+            # Update encrypted cache
             await delete_profile_data(f"{redis_key_prefix}:id:{user['id']}")
             await delete_profile_data(f"{redis_key_prefix}:{user['email']}")
-            await set_profile_data(f"{redis_key_prefix}:{user['email']}", 3600, json.dumps(user))
+            await set_profile_data(f"{redis_key_prefix}:{user['email']}", 3600, user)
 
             logger("Auth", "User Service", "INFO", "null", f"Email verification completed: {user['email']}")
             return True
