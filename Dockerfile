@@ -13,7 +13,7 @@ WORKDIR /usr/src/app
 COPY . Auth/
 
 # -------- Runtime Stage --------
-FROM python:3.9.23-trixie
+FROM python:3.13.7-trixie
 
 # Set workdir to project root
 WORKDIR /usr/src/app/Auth

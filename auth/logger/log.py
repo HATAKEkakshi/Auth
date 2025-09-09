@@ -27,18 +27,24 @@ import os
     """
 
 def logger(service:str,integration:str,level:str,priority:str,message:str):
-    requests.post(
-        'http://localhost:1027/logger/log',
-        json={
-            'account_id': os.getenv('Account_id'), ## Fetching account id from environment variable
-            'service': service,
-            'integration': integration,
-            'level': level,
-            "priority": priority,
-            'message': message
-        },
-        headers={
-            'WATCHMAN-API-KEY': os.getenv('Access_token'), ## Fetching access token from environment variable
-            'Content-Type': 'application/json'
-        }
-    )
+    try:
+        response = requests.post(
+            'http://logger:8000/logger/log',
+            json={
+                'account_id': os.getenv('Account_id'), ## Fetching account id from environment variable
+                'service': service,
+                'integration': integration,
+                'level': level,
+                "priority": priority,
+                'message': message
+            },
+            headers={
+                'WATCHMAN-API-KEY': os.getenv('Access_token'), ## Fetching access token from environment variable
+                'Content-Type': 'application/json'
+            },
+            timeout=5
+        )
+    except requests.exceptions.ConnectionError as e:
+        print(f"Logger service connection failed: {e}")
+    except Exception as e:
+        print(f"Logger error: {e}")
