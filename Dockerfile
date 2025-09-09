@@ -24,18 +24,14 @@ COPY --from=builder /usr/src/app/Auth ./
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create startup script
+# Create startup script inside the working directory
 RUN echo '#!/bin/bash\n\
-# Start Celery worker in background\n\
 celery -A auth.config.worker worker --loglevel=info --detach\n\
-\n\
-# Start Celery beat scheduler in background\n\
 celery -A auth.config.worker beat --loglevel=info --detach\n\
-\n\
-# Start FastAPI with uvicorn\n\
 uvicorn app:app --host 0.0.0.0 --port 8000\n\
-' > /app/start.sh && chmod +x /app/start.sh
+' > start.sh && chmod +x start.sh
 
 EXPOSE 8000
 
-CMD ["/app/start.sh"]
+# Run startup script
+CMD ["./start.sh"]
