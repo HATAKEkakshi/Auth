@@ -24,4 +24,3 @@ pytest
 pytest-cov
 pytest-asyncio
 coverage
-sonar-scanner
