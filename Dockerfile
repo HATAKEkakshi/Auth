@@ -1,18 +1,28 @@
-FROM python:3.11-slim
+# syntax=docker/dockerfile:1.4
 
-WORKDIR /app
+# -------- Build Stage --------
+FROM ubuntu:rolling AS builder
+LABEL AUTHOR="HEMANT KUMAR"
+LABEL VERSION="1.0"
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git openssh-client
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+WORKDIR /usr/src/app
 
-# Copy application code
-COPY . .
+# Copy the local project files into the image
+COPY . Auth/
+
+# -------- Runtime Stage --------
+FROM python:3.9.23-trixie
+
+# Set workdir to project root
+WORKDIR /usr/src/app/Auth
+
+# Copy code from builder stage
+COPY --from=builder /usr/src/app/Auth ./
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
