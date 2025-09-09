@@ -36,33 +36,11 @@ jobs:
           echo '<?xml version="1.0" ?><coverage version="7.0"><sources><source>.</source></sources><packages></packages></coverage>' > coverage.xml
         fi
 
-    - name: Setup SonarQube
-      uses: warchant/setup-sonar-scanner@v7
-
-    - name: SonarQube Scan
-      run: |
-        sonar-scanner \
-          -Dsonar.host.url="$SONAR_URL" \
-          -Dsonar.login="$SONAR_TOKEN" \
-          -Dsonar.organization="$SONAR_ORGANIZATION" \
-          -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
-          -Dsonar.projectName="Enterprise Authentication System" \
-          -Dsonar.sources="auth/" \
-          -Dsonar.python.coverage.reportPaths="coverage.xml" \
-          -Dsonar.python.xunit.reportPath="test-results.xml"
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
       env:
-        SONAR_URL: ${{ secrets.SONAR_URL }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
-        SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
-
-    - name: SonarQube Quality Gate check
-      id: sonarqube-quality-gate-check
-      uses: sonarsource/sonarqube-quality-gate-action@master
-      timeout-minutes: 5
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
 
   build-and-push:
     runs-on: ubuntu-latest
