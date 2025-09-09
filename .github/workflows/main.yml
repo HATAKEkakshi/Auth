@@ -48,7 +48,9 @@ jobs:
           -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
           -Dsonar.sources="auth/" \
           -Dsonar.python.coverage.reportPaths="coverage.xml" \
-          -Dsonar.python.xunit.reportPath="test-results.xml"
+          -Dsonar.python.xunit.reportPath="test-results.xml" \
+          -Dsonar.branch.name="${GITHUB_REF#refs/heads/}" \
+          -Dsonar.projectVersion="1.0.0"
       env:
         SONAR_URL: ${{ secrets.SONAR_URL }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
