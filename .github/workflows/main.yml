@@ -1,0 +1,86 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: 
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  sonarqube:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov
+    
+    - name: Run tests with coverage
+      run: |
+        pytest --cov=auth --cov-report=xml --cov-report=html --junitxml=test-results.xml
+
+    - name: Setup SonarQube
+      uses: warchant/setup-sonar-scanner@v7
+
+    - name: SonarQube Scan
+      run: |
+        sonar-scanner \
+          -Dsonar.host.url=$SONAR_URL \
+          -Dsonar.login=$SONAR_TOKEN \
+          -Dsonar.organization=$SONAR_ORGANIZATION \
+          -Dsonar.projectKey=$SONAR_PROJECT_KEY \
+          -Dsonar.sources=auth/ \
+          -Dsonar.python.coverage.reportPaths=coverage.xml \
+          -Dsonar.python.xunit.reportPath=test-results.xml
+      env:
+        SONAR_URL: ${{ secrets.SONAR_URL }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+        SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+
+    - name: SonarQube Quality Gate check
+      id: sonarqube-quality-gate-check
+      uses: sonarsource/sonarqube-quality-gate-action@master
+      timeout-minutes: 5
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
+
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name:  Checkout code
+        uses: actions/checkout@v3
+
+      - name:  Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name:  Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            hatakekakashihk/auth:latest
+            hatakekakashihk/auth:${{ github.sha }}

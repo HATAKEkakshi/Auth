@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  auth-app:
+    image: hatakekakashihk/auth:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - MONGO_URL=mongodb://mongodb:27017
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - mongodb
+
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube-auth
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - sonar-network
+
+  postgres:
+    image: postgres:13
+    container_name: sonarqube-db
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sonar-network
+
+volumes:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  postgres_data:
+  mongodb_data:
+networks:
+  sonar-network:
+    driver: bridge
+
+
