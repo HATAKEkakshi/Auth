@@ -27,8 +27,11 @@ async def create_user(user_data: User, request: Request):
 
 @user.post("/login")
 async def login_user(request:Request,request_form: OAuth2PasswordRequestForm = Depends()):
-    token = await user_service.token(request_form.username, request_form.password,request)
-    return {"access_token": token, "token_type": "bearer"}
+    try:
+        token = await user_service.token(request_form.username, request_form.password,request)
+        return {"access_token": token, "token_type": "bearer"}
+    except Exception as e:
+        raise e
 
 
 @user.get("/verify")
@@ -42,8 +45,11 @@ async def verify_email(token: str, request: Request):
 
 @user.get("/forget_password")
 async def forget_password(email: str):
-    await user_service.forget_password(email)
-    return {"message": "Password reset link sent to your email"}
+    try:
+        await user_service.forget_password(email)
+        return {"message": "Password reset link sent to your email"}
+    except Exception:
+        return {"message": "Password reset link sent to your email"}  # Always return success for security
 
 
 @user.get("/reset_password_form")
@@ -53,7 +59,7 @@ async def reset_password_form(token: str, request: Request):
         context={
             "request": request,
             "token": token,
-            "reset_url": f"http://{app_settings.APP_DOMAIN}{user.prefix}/reset_password?token={token}"
+            "reset_url": f"https://{app_settings.APP_DOMAIN}{user.prefix}/reset_password?token={token}"
         }
     )
 

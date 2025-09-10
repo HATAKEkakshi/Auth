@@ -4,7 +4,7 @@ from auth.config.notification import app_settings
 from auth.services.notifications import NotificationService
 from auth.config.redis import set_profile_data,get_profile_data,delete_profile_data
 from auth.helper.utils import (
-    generate_country, id_generator, password_hash,
+    get_country_from_dial_code, id_generator, password_hash,
     password_context, generate_access_token,
     generate_url_safe_token, decode_url_safe_token,generate_otp_token, decode_otp_token
 )
@@ -192,7 +192,7 @@ class UserService:
             user_id = id_generator()
             user_dict.update({
                 "id": user_id,
-                "country": generate_country(user_dict["country_code"]),
+                "country": get_country_from_dial_code(user_dict["country_code"]),
                 "is_email_verified": False
             })
 
@@ -336,7 +336,7 @@ class UserService:
                 subject="Password Reset Request",
                 context={
                     "name": user["first_name"],
-                    "reset_url": f"http://{app_settings.APP_DOMAIN}/{router_prefix}/reset_password_form?token={token}"
+                    "reset_url": f"https://{app_settings.APP_DOMAIN}/{router_prefix}/reset_password_form?token={token}"
                 },
                 template_name="mail_password_reset.html"
             )

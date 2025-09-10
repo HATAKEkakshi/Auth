@@ -168,7 +168,7 @@ def send_email_template_task(email: str, subject: str, context: dict, template_n
         message = MessageSchema(
             subject=subject,
             recipients=[email],
-            template_body=context,
+            template_body=sanitized_context,
             subtype=MessageType.html,
         )
         

@@ -42,8 +42,11 @@ async def verify_email(token: str, request: Request):
 
 @user.get("/forget_password")
 async def forget_password(email: str):
-    await user_service.forget_password(email)
-    return {"message": "Password reset link sent to your email"}
+    try:
+        await user_service.forget_password(email)
+        return {"message": "Password reset link sent to your email"}
+    except Exception as e:
+        return {"message": "Password reset link sent to your email"}  # Always return success for security
 
 
 @user.get("/reset_password_form")
@@ -53,7 +56,7 @@ async def reset_password_form(token: str, request: Request):
         context={
             "request": request,
             "token": token,
-            "reset_url": f"http://{app_settings.APP_DOMAIN}{user.prefix}/reset_password?token={token}"
+            "reset_url": f"https://{app_settings.APP_DOMAIN}{user.prefix}/reset_password?token={token}"
         }
     )
 
@@ -78,8 +81,11 @@ async def verify_otp_phone(token: str, otp: int, request: Request):
     return await user_service.verify_otp_phone(token, otp, request)
 @user.get("/logout")
 async def logout(token_data: Annotated[dict, Depends(get_user1_access_token)]):
-    await add_jti_to_blacklist(token_data["jti"])
-    return {"message": "Logout successfully"}
+    try:
+        await add_jti_to_blacklist(token_data["jti"])
+        return {"message": "Logout successfully"}
+    except Exception:
+        return {"message": "Logout successfully"}  # Always return success
 
 
 @user.delete("/delete")

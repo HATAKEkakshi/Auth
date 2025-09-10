@@ -1,4 +1,4 @@
-import random    
+import secrets
 import string
 from itsdangerous import BadSignature,Serializer,URLSafeSerializer,URLSafeTimedSerializer,SignatureExpired
 from fastapi import HTTPException, status
@@ -46,7 +46,7 @@ def get_country_from_dial_code(dial_code: str) -> str:
 def id_generator(length=7):
     try:
         characters = string.ascii_letters + string.digits  # a-zA-Z0-9
-        generated_id = ''.join(random.choices(characters, k=length))
+        generated_id = ''.join(secrets.choice(characters) for _ in range(length))
         logger("Auth", "Utils", "INFO", "null", f"Generated ID with length: {length}")
         return generated_id
     except Exception as e:
@@ -54,29 +54,7 @@ def id_generator(length=7):
         raise
 
 
-"""Generate country name from dial code (duplicate function - consider removing)"""
-def generate_country(dial_code: str) -> str:
-     try:
-        # Remove '+' if present and convert to integer
-        code = int(dial_code.strip().replace("+", ""))
-        
-        # Get ISO Alpha-2 region code (e.g., 'IN' for +91)
-        region_code = region_code_for_country_code(code)
-        if not region_code:
-            logger("Auth", "Utils", "WARN", "LOW", f"Unrecognized dial code in generate_country: {dial_code}")
-            return "Country not recognized for this code."
 
-        # Use pycountry to get full country name
-        country = pycountry.countries.get(alpha_2=region_code)
-        if country:
-            logger("Auth", "Utils", "INFO", "null", f"Country generated: {country.name} for dial code {dial_code}")
-            return country.name
-        else:
-            logger("Auth", "Utils", "WARN", "LOW", f"Country not found for region code: {region_code}")
-            return "Country not found in database."
-     except Exception as e:
-        logger("Auth", "Utils", "ERROR", "ERROR", f"Error in generate_country for dial code {dial_code}: {str(e)}")
-        return f"Invalid input: {e}"
 
 
 """Hash password using bcrypt for secure storage"""
