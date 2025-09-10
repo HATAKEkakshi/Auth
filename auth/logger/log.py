@@ -29,7 +29,7 @@ import os
 def logger(service:str,integration:str,level:str,priority:str,message:str):
     try:
         response = requests.post(
-            'http://logger:8000/logger/log',
+            'http://localhost:1027/logger/log',
             json={
                 'account_id': os.getenv('Account_id'), ## Fetching account id from environment variable
                 'service': service,
