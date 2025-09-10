@@ -336,7 +336,7 @@ class UserService:
                 subject="Password Reset Request",
                 context={
                     "name": user["first_name"],
-                    "reset_url": f"https://{app_settings.APP_DOMAIN}/{router_prefix}/reset_password_form?token={token}"
+                    "reset_url": f"http://{app_settings.APP_DOMAIN}/{router_prefix}/reset_password_form?token={token}"
                 },
                 template_name="mail_password_reset.html"
             )

@@ -56,7 +56,7 @@ async def reset_password_form(token: str, request: Request):
         context={
             "request": request,
             "token": token,
-            "reset_url": f"https://{app_settings.APP_DOMAIN}{user.prefix}/reset_password?token={token}"
+            "reset_url": f"http://{app_settings.APP_DOMAIN}{user.prefix}/reset_password?token={token}"
         }
     )
 
