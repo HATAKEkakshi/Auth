@@ -2,7 +2,8 @@ version: '3.8'
 
 services:
   auth-app:
-    image: hatakekakashihk/auth:latest
+    image: hatakekakashihk/auth:arm64
+    container_name: auth-app
     ports:
       - "8000:8000"
     environment:

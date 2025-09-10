@@ -67,4 +67,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             hatakekakashihk/auth:latest
+            hatakekakashihk/auth:amd64
+            hatakekakashihk/auth:arm64
             hatakekakashihk/auth:${{ github.sha }}
