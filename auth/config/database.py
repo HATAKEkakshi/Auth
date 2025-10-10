@@ -11,7 +11,7 @@ _base_config=SettingsConfigDict(
     )
 
 # MongoDB connection setup
-client = AsyncIOMotorClient("mongodb://mongodb:27017")
+client = AsyncIOMotorClient("mongodb://localhost:27017")
 db = client.auth  # Auth database
 user1_collection_name=db["User1"]  # User1 collection for multi-user support
 user2_collection_name=db["User2"]  # User2 collection for multi-user support

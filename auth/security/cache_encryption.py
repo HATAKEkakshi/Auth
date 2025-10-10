@@ -1,13 +1,13 @@
+from auth.security.encryption import EncryptionService
+import json
+from typing import Any, Dict, Optional
+from auth.logger.log import logger
+
 """
 Redis Cache Encryption Service
 Provides AES-256 encryption for all cached data to ensure sensitive information
 is protected both at rest (database) and in memory (Redis cache).
 """
-
-from auth.security.encryption import EncryptionService
-import json
-from typing import Any, Dict, Optional
-from auth.logger.log import logger
 
 class CacheEncryptionService:
     """Service for encrypting/decrypting cache data"""

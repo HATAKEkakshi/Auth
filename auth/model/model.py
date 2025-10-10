@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr, root_validator
 from typing import Optional
-from auth.helper.utils import id_generator, generate_country
+from auth.helper.utils import id_generator
 
 class BaseUser(BaseModel):
     id: str = Field(default_factory=id_generator, description="User ID")

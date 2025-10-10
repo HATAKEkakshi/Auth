@@ -6,8 +6,8 @@ redis
 httpx
 pycountry
 phonenumbers
-passlib[bcrypt]
-bcrypt
+passlib[argon]
+bcrypt>=4.0.0
 pyjwt[crypto]
 fastapi-mail
 jinja2

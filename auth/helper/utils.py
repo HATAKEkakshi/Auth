@@ -14,8 +14,11 @@ from auth.logger.log import logger
 APP_DIR= Path(__file__).resolve().parent
 TEMPLATE_DIR = APP_DIR.parent / "templates"
 _serializer=URLSafeTimedSerializer(security_settings.JWT_SECRET)
-# Password hashing context
-password_context=CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing context with argon2 configuration
+password_context=CryptContext(
+    schemes=["argon2"],
+    deprecated="auto"
+)
 
 """Get country name from dial code for phone number validation"""
 def get_country_from_dial_code(dial_code: str) -> str:

@@ -10,9 +10,6 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# Import after path setup
-from auth.config.worker import celery_app
-
 if __name__ == "__main__":
-    # Start Celery worker
-    celery_app.start()
+    # Start Celery worker with proper command
+    os.system("celery -A auth.config.worker worker --loglevel=info")

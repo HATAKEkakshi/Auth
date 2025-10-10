@@ -27,7 +27,7 @@ class RedisPoolManager:
                 max_connections=20,
                 retry_on_timeout=True
             )
-            logger("Auth", "Redis Pool", "INFO", "null", "Redis connection pool initialized")
+            logger("Auth", "Redis Cache", "INFO", "null", "Redis connection pool initialized")
         return self._pool
 
 _pool_manager = RedisPoolManager()
@@ -35,7 +35,7 @@ _pool_manager = RedisPoolManager()
 """Initialize Redis connection pool"""
 async def init_redis_pool():
     await _pool_manager.get_pool()
-    logger("Auth", "Redis Pool", "INFO", "null", "Redis connection pool ready")
+    logger("Auth", "Redis Cache", "INFO", "null", "Redis connection pool ready")
 
 """Get Redis client from connection pool"""
 async def get_redis_client():
@@ -51,7 +51,7 @@ async def set_profile_data(key: str, ttl: int, profile_data: dict):
         await redis_client.setex(key, ttl, encrypted_data)
         logger("Auth", "Redis Cache", "INFO", "null", f"Setting encrypted data for key in cache: {key} with TTL: {ttl}")
     except Exception as e:
-        logger("Auth", "Redis Cache", "ERROR", "HIGH", f"Redis error: {e}")
+        logger("Auth", "Redis Cache", "ERROR", "CRITICAL", f"Redis error: {e}")
         raise
 
 """Get and decrypt data from Redis cache by key"""
@@ -67,7 +67,7 @@ async def get_profile_data(key: str) -> Optional[dict]:
         logger("Auth", "Redis Cache", "INFO", "null", f"Cache miss for key: {key} (expected for new data)")
         return None
     except Exception as e:
-        logger("Auth", "Redis Cache", "ERROR", "HIGH", "Redis decryption error")
+        logger("Auth", "Redis Cache", "ERROR", "CRITICAL", f"Redis decryption error: {str(e)}")
         return None
 
 """Delete data from Redis cache by key"""
@@ -77,7 +77,7 @@ async def delete_profile_data(key: str):
         await redis_client.delete(key)
         logger("Auth", "Redis Cache", "INFO", "null", f"Deleted data for key in cache: {key}")
     except Exception as e:
-        logger("Auth", "Redis Cache", "ERROR", "ERROR", f"Redis error: {e}")
+        logger("Auth", "Redis Cache", "ERROR", "ERROR", f"Redis error: {str(e)}")
         raise
 
 """Add JWT token to blacklist with Bloom filter optimization"""
@@ -108,7 +108,7 @@ async def is_jti_blacklisted(jti: str) -> bool:
             logger("Auth", "Redis Cache", "WARN", "HIGH", f"Confirmed blacklisted token: {jti[:10]}...")
         return result
     except Exception as e:
-        logger("Auth", "Redis Cache", "ERROR", "HIGH", "Token blacklist check failed")
+        logger("Auth", "Redis Cache", "ERROR", "CRITICAL", "Token blacklist check failed")
         return False
 
 """Check Redis connection health status"""
@@ -123,14 +123,14 @@ async def check_redis_health():
         logger("Auth", "Redis Cache", "ERROR", "CRITICAL", f"Redis connection failed: {str(e)}")
         return False
 
-"""Continuously monitor Redis health every 60 seconds with error handling"""
+"""Continuously monitor Redis health every 60 seconds"""
 async def monitor_redis():
     while True:
         try:
             await check_redis_health()
             await asyncio.sleep(60)
         except Exception as e:
-            logger("Auth", "Redis Monitor", "ERROR", "HIGH", f"Redis monitoring error: {str(e)}")
+            logger("Auth", "Redis Cache", "ERROR", "CRITICAL", f"Redis monitoring error: {str(e)}")
             await asyncio.sleep(60)
 # Global task reference to prevent garbage collection
 _monitoring_task = None
@@ -140,5 +140,5 @@ def start_redis_monitoring():
     global _monitoring_task
     if _monitoring_task is None or _monitoring_task.done():
         _monitoring_task = asyncio.create_task(monitor_redis())
-        logger("Auth", "Redis Monitor", "INFO", "null", "Redis monitoring task started")
+        logger("Auth", "Redis Cache", "INFO", "null", "Redis monitoring task started")
     return _monitoring_task

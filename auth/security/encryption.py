@@ -100,5 +100,5 @@ class EncryptionService:
             logger("Auth", "Encryption", "ERROR", "CRITICAL", f"Email encryption failed: {str(e)}")
             raise
 
-# Global encryption service instance
+# Encryption service instance
 encryption_service = EncryptionService()
