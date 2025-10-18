@@ -29,7 +29,7 @@ A **production-grade authentication system** built with FastAPI, featuring enter
 - **Token Blacklisting**: Secure logout with revocation
 - **Email Verification**: Mandatory email validation workflow
 - **SMS OTP Verification**: Two-factor authentication via Twilio
-- **Password Security**: Bcrypt hashing with strength validation
+- **Password Security**: Argon2 hashing with strength validation
 - **Session Management**: Secure session handling
 
 ## 🛠️ Enterprise Tech Stack
@@ -42,7 +42,7 @@ A **production-grade authentication system** built with FastAPI, featuring enter
 ### **Security & Encryption**
 - **Cryptography**: AES-256-GCM field-level encryption
 - **JWT**: Secure token-based authentication
-- **Bcrypt**: Password hashing with salt
+- **Argon2**: Modern password hashing algorithm
 - **OAuth2**: Industry-standard authorization
 
 ### **Data & Caching**
@@ -319,56 +319,48 @@ curl -X POST "https://yourdomain.com/User1/login" \
 
 ## 🏗️ Enterprise Architecture
 
-### **🎯 System Architecture Diagram**
+### **🎯 Actual System Architecture**
 
 ```mermaid
 graph TB
     %% Client Layer
     Client["🌐 Client Applications<br/>Web/Mobile/API"]
     
-    %% Load Balancer & Security
-    LB["⚖️ Load Balancer<br/>NGINX/CloudFlare"]
-    WAF["🛡️ Web Application Firewall<br/>Rate Limiting & DDoS Protection"]
+    %% FastAPI Monolithic Application
+    APP["🚀 FastAPI Application<br/>Monolithic Architecture"]
     
-    %% API Gateway
-    API["🚀 FastAPI Application<br/>Async Python Framework"]
+    %% Security Middleware (Built-in)
+    SEC["🛡️ Security Middleware<br/>Rate Limiting, Input Validation, CORS"]
     
-    %% Security Middleware
-    SEC["🔐 Security Middleware<br/>JWT Auth, Input Validation, CORS"]
-    
-    %% Business Logic Layer
+    %% Business Logic Services (Internal)
     USER1["👤 User1 Service<br/>Primary User Management"]
     USER2["👥 User2 Service<br/>Secondary User Management"]
-    NOTIF["📧 Notification Service<br/>Email/SMS with Templates"]
+    NOTIF["📧 Notification Service<br/>Email/SMS Processing"]
     
-    %% Encryption Layer
-    ENCRYPT["🔒 Field Encryption Service<br/>AES-256 Database Encryption"]
-    CACHE_ENC["🔐 Cache Encryption Service<br/>AES-256 Redis Encryption"]
-    BLOOM["🌸 Bloom Filter Service<br/>1000x Faster Lookups"]
+    %% Encryption Services (Internal)
+    ENCRYPT["🔒 Field Encryption<br/>AES-256 Database Encryption"]
+    CACHE_ENC["🔐 Cache Encryption<br/>AES-256 Redis Encryption"]
+    BLOOM["🌸 Bloom Filter<br/>Fast Token Lookups"]
     
-    %% Storage Layer with Connection Pooling
-    MONGO[("📊 MongoDB<br/>Encrypted Document Store")]
-    REDIS_POOL["⚡ Redis Connection Pool<br/>Thread-Safe Singleton"]
-    REDIS[("🔒 Redis Cache<br/>AES-256 Encrypted Cache")]
+    %% Storage Layer
+    MONGO[("📊 MongoDB<br/>Document Database")]
+    REDIS[("⚡ Redis<br/>Cache & Session Store")]
     
-    %% Background Processing
-    CELERY["⚙️ Celery Workers<br/>Background Task Queue"]
-    BEAT["⏰ Celery Beat<br/>Scheduled Tasks"]
+    %% Background Processing (Separate Process)
+    CELERY["⚙️ Celery Workers<br/>Background Tasks"]
     
     %% External Services
-    EMAIL["📮 Email Service<br/>SMTP/FastMail"]
-    SMS["📱 SMS Service<br/>Twilio API"]
-    MONITOR["📊 Monitoring<br/>Watchman API"]
+    EMAIL["📮 SMTP Service<br/>Gmail/FastMail"]
+    SMS["📱 Twilio SMS<br/>OTP Verification"]
+    MONITOR["📊 Watchman API<br/>Logging (Optional)"]
     
-    %% Data Flow
-    Client --> LB
-    LB --> WAF
-    WAF --> API
-    API --> SEC
+    %% Data Flow - Simplified
+    Client --> APP
+    APP --> SEC
     SEC --> USER1
     SEC --> USER2
     
-    %% Service to Encryption Layer
+    %% Internal Service Communication
     USER1 --> ENCRYPT
     USER2 --> ENCRYPT
     USER1 --> CACHE_ENC
@@ -380,36 +372,31 @@ graph TB
     
     %% Storage Connections
     ENCRYPT --> MONGO
-    CACHE_ENC --> REDIS_POOL
-    REDIS_POOL --> REDIS
-    BLOOM --> REDIS_POOL
-    SEC --> REDIS_POOL
+    CACHE_ENC --> REDIS
+    BLOOM --> REDIS
+    SEC --> REDIS
     
     %% Background Processing
     NOTIF --> CELERY
     CELERY --> EMAIL
     CELERY --> SMS
-    BEAT --> CELERY
     
     %% Monitoring
-    API --> MONITOR
+    APP --> MONITOR
     CELERY --> MONITOR
-    REDIS_POOL --> MONITOR
     
     %% Styling
     classDef client fill:#e1f5fe
-    classDef security fill:#ffebee
+    classDef app fill:#e8f5e8
     classDef service fill:#f3e5f5
-    classDef storage fill:#e8f5e8
-    classDef external fill:#fff3e0
-    classDef encryption fill:#fce4ec
+    classDef storage fill:#fff3e0
+    classDef external fill:#ffebee
     
     class Client client
-    class LB,WAF,SEC security
-    class API,USER1,USER2,NOTIF,BLOOM service
-    class MONGO,REDIS,REDIS_POOL storage
-    class EMAIL,SMS,MONITOR,CELERY,BEAT external
-    class ENCRYPT,CACHE_ENC encryption
+    class APP,SEC app
+    class USER1,USER2,NOTIF,ENCRYPT,CACHE_ENC,BLOOM service
+    class MONGO,REDIS storage
+    class EMAIL,SMS,MONITOR,CELERY external
 ```
 
 ### **📁 Directory Structure**
@@ -454,24 +441,30 @@ auth/
     └── security.py              # OAuth2 configuration
 ```
 
-### **🔄 Data Flow Architecture**
+### **🔄 Actual Data Flow Architecture**
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   📱 Client     │───▶│  🛡️ Security     │───▶│  🏢 Business    │
-│   Applications  │    │   Middleware     │    │   Logic Layer   │
+│   📱 Client     │───▶│  🚀 FastAPI      │───▶│  🛡️ Security   │
+│   Request       │    │   Application    │    │   Middleware    │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                              │                         │
-                              ▼                         ▼
+                                                         │
+                                                         ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  🔐 Encryption  │◀───│  📊 Data Models  │◀───│  ⚡ Performance │
-│   AES-256 GCM   │    │   Validation     │    │  Bloom Filters  │
+│  👤 User        │◀───│  📊 Pydantic     │◀───│  🏢 Route       │
+│   Services      │    │   Validation     │    │   Handlers      │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│  🔐 AES-256     │    │  🌸 Bloom Filter │    │  📧 Celery      │
+│   Encryption    │    │   Optimization   │    │   Background    │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  💾 MongoDB     │    │  ⚡ Redis Cache  │    │  📧 External   │
-│  Document Store │    │  Session Store   │    │   Services     │
+│  💾 MongoDB     │    │  ⚡ Redis Cache  │    │  📮 External   │
+│  Encrypted Data │    │  Encrypted Cache │    │   Services      │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
@@ -512,7 +505,7 @@ auth/
 
 **Multi-Layer Protection:**
 - ✅ **AES-256 Field Encryption**: All PII encrypted at rest
-- ✅ **Bcrypt Password Hashing**: Salted password storage  
+- ✅ **Argon2 Password Hashing**: Modern secure password storage  
 - ✅ **JWT Token Management**: Secure stateless authentication
 - ✅ **Token Blacklisting**: Secure logout with revocation
 - ✅ **Email Verification**: Mandatory email validation
