@@ -408,8 +408,9 @@ auth/
 │   ├── cache_encryption.py      # AES-256 Redis cache encryption
 │   └── template_validator.py    # XSS protection for templates
 ├── 🛡️ middleware/               # Security Middleware
-│   └── security.py              # Rate limiting, input validation
+│   └── security.py              # Rate limiting, input validation, CORS
 ├── 🏢 services/                 # Business Logic Layer
+│   ├── __init__.py              # Service package initialization
 │   ├── user.py                  # Base UserService (encrypted)
 │   ├── user1.py                 # User1Service implementation
 │   ├── user2.py                 # User2Service implementation
@@ -421,23 +422,37 @@ auth/
 │   ├── model.py                 # Pydantic validation models
 │   └── encrypted_model.py       # Encrypted database models
 ├── ⚙️ config/                   # Configuration Layer
+│   ├── __init__.py              # Config package initialization
 │   ├── database.py              # MongoDB with health monitoring
 │   ├── redis.py                 # Redis with Bloom filters
 │   ├── bloom.py                 # Performance optimization
 │   ├── notification.py          # Communication settings
+│   ├── secert.py                # JWT security settings
 │   ├── security_config.py       # Security configuration
 │   └── worker.py                # Celery task queue
 ├── 🔧 helper/                   # Utility Layer
 │   └── utils.py                 # Cryptographic utilities
 ├── 📝 logger/                   # Monitoring Layer
 │   └── log.py                   # Watchman API integration
-├── 🔗 Dependencies/             # Dependency Injection
+├── 🔗 Dependenices/             # Dependency Injection
 │   └── dependencies.py          # FastAPI dependencies
+├── 💾 data/                     # Data Storage
+│   └── bloom/                   # Bloom filter JSON files
+│       ├── blacklisted_tokens.json
+│       ├── registered_emails.json
+│       ├── suspicious_ips.json
+│       └── compromised_passwords.json
 ├── 🎨 templates/                # Email Templates
 │   ├── registration.html        # Welcome email
 │   ├── mail_email_verify.html   # Email verification
-│   └── mail_password_reset.html # Password reset
+│   ├── mail_password_reset.html # Password reset
+│   ├── reset.html               # Password reset form
+│   ├── reset_success.html       # Reset success page
+│   ├── reset_failed.html        # Reset failure page
+│   ├── email_verified.html      # Email verification success
+│   └── email_verified_failed.html # Email verification failure
 └── 🔑 core/                     # Core Security
+    ├── __init__.py              # Core package initialization
     └── security.py              # OAuth2 configuration
 ```
 
