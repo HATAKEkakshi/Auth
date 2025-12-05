@@ -7,7 +7,6 @@ httpx
 pycountry
 phonenumbers
 passlib[argon]
-bcrypt>=4.0.0
 pyjwt[crypto]
 fastapi-mail
 jinja2
