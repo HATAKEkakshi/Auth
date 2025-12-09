@@ -1,28 +1,21 @@
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-import html
+from jinja2 import Environment, FileSystemLoader
 import re
 from auth.security.template_validator import SecureTemplateValidator
-from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from auth.config.notification import notification_settings
 from auth.helper.utils import TEMPLATE_DIR
 from auth.config.worker import celery_app
 from twilio.rest import Client
 from auth.logger.log import logger
 import asyncio
+import aiosmtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 class NotificationService:
     """Service for handling email and SMS notifications via Celery tasks"""
     
     def __init__(self):
         try:
-            self.fastmail = FastMail(
-                ConnectionConfig(
-                    **notification_settings.model_dump(
-                        exclude=["TWILIO_SID", "TWILIO_AUTH_TOKEN", "TWILIO_NUMBER"]
-                    ),
-                    TEMPLATE_FOLDER=TEMPLATE_DIR,
-                )
-            )
             self.twilio_client = Client(
                 notification_settings.TWILIO_SID,
                 notification_settings.TWILIO_AUTH_TOKEN,
@@ -31,18 +24,6 @@ class NotificationService:
         except Exception as e:
             logger("Auth", "Notification", "ERROR", "ERROR", f"NotificationService initialization failed: {str(e)}")
             raise
-
-    """Internal method to send plain email asynchronously"""
-    async def _send_plain_email(self, message: MessageSchema):
-        try:
-            await self.fastmail.send_message(message)
-            logger("Auth", "Notification", "INFO", "null", "Plain email sent successfully")
-        except Exception as e:
-            logger("Auth", "Notification", "ERROR", "ERROR", f"Plain email sending failed: {str(e)}")
-            raise
-
-    """Synchronous wrapper for plain email sending - REMOVED for security"""
-    # Removed unsafe asyncio.run to prevent command injection
 
     """Send plain text email via Celery task"""
     def send_message(self, email: str, subject: str, body: str):
@@ -58,17 +39,6 @@ class NotificationService:
             logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to queue plain email task for {email}: {str(e)}")
             raise
 
-    """Internal method to send HTML template email asynchronously"""
-    async def _send_html_email(self, message: MessageSchema, template_name: str):
-        try:
-            await self.fastmail.send_message(message=message, template_name=template_name)
-            logger("Auth", "Notification", "INFO", "null", f"HTML template email sent successfully: {template_name}")
-        except Exception as e:
-            logger("Auth", "Notification", "ERROR", "ERROR", f"HTML template email sending failed for {template_name}: {str(e)}")
-            raise
-
-    """Synchronous wrapper for HTML template email sending - REMOVED for security"""
-    # Removed unsafe asyncio.run to prevent command injection
     """Send HTML template email via Celery task"""
     def send_email_template(self, email: str, subject: str, context: dict, template_name: str):
         try:
@@ -82,6 +52,7 @@ class NotificationService:
         except Exception as e:
             logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to queue template email task for {email}, template {template_name}: {str(e)}")
             raise
+
     """Send SMS via Celery task"""
     def send_sms(self, to: str, body: str):
         try:
@@ -97,6 +68,29 @@ class NotificationService:
             raise
 
 
+async def _send_email_async(to_email: str, subject: str, body: str, is_html: bool = False):
+    """Internal async function to send email via aiosmtplib"""
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = f"{notification_settings.MAIL_FROM_NAME} <{notification_settings.MAIL_FROM}>"
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        
+        msg.attach(MIMEText(body, 'html' if is_html else 'plain'))
+        
+        await aiosmtplib.send(
+            msg,
+            hostname=notification_settings.MAIL_SERVER,
+            port=notification_settings.MAIL_PORT,
+            start_tls=notification_settings.MAIL_STARTTLS,
+            use_tls=notification_settings.MAIL_SSL_TLS,
+            username=notification_settings.MAIL_USERNAME,
+            password=notification_settings.MAIL_PASSWORD,
+        )
+        logger("Auth", "Notification", "INFO", "null", f"Email sent successfully to: {to_email}")
+    except Exception as e:
+        logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to send email to {to_email}: {str(e)}")
+        raise
 
 
 # Celery tasks defined outside the class
@@ -106,36 +100,13 @@ def send_plain_email_task(email: str, subject: str, body: str):
     try:
         logger("Auth", "Notification", "INFO", "null", f"Starting plain email task for: {email}")
         
-        fastmail = FastMail(
-            ConnectionConfig(
-                **notification_settings.model_dump(
-                    exclude=["TWILIO_SID", "TWILIO_AUTH_TOKEN", "TWILIO_NUMBER"]
-                ),
-                TEMPLATE_FOLDER=TEMPLATE_DIR,
-            )
-        )
+        # Run async function in sync Celery task
+        asyncio.run(_send_email_async(email, subject, body, is_html=False))
         
-        message = MessageSchema(
-            subject=subject,
-            recipients=[email],
-            body=body,
-            subtype=MessageType.plain,
-        )
-        
-        # Use proper async context instead of asyncio.run
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(fastmail.send_message(message))
-        finally:
-            loop.close()
-        logger("Auth", "Notification", "INFO", "null", f"Plain email sent successfully to: {email}")
+        logger("Auth", "Notification", "INFO", "null", f"Plain email task completed for: {email}")
     except Exception as e:
         logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to send plain email to {email}: {str(e)}")
         raise
-
-
 
 
 @celery_app.task(name="notifications.send_email_template")
@@ -143,15 +114,6 @@ def send_email_template_task(email: str, subject: str, context: dict, template_n
     """Celery task for sending HTML template emails"""
     try:
         logger("Auth", "Notification", "INFO", "null", f"Starting template email task for: {email}, template: {template_name}")
-        
-        fastmail = FastMail(
-            ConnectionConfig(
-                **notification_settings.model_dump(
-                    exclude=["TWILIO_SID", "TWILIO_AUTH_TOKEN", "TWILIO_NUMBER"]
-                ),
-                TEMPLATE_FOLDER=TEMPLATE_DIR,
-            )
-        )
         
         # Use secure template validator
         validator = SecureTemplateValidator(TEMPLATE_DIR)
@@ -163,29 +125,20 @@ def send_email_template_task(email: str, subject: str, context: dict, template_n
         # Sanitize context data using validator
         sanitized_context = validator.sanitize_template_context(context)
         
-        logger("Auth", "Notification", "INFO", "null", f"Template validated and context sanitized: {template_name}")
-
-        message = MessageSchema(
-            subject=subject,
-            recipients=[email],
-            template_body=sanitized_context,
-            subtype=MessageType.html,
-        )
+        # Render template
+        env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
+        template = env.get_template(template_name)
+        rendered_html = template.render(sanitized_context)
         
-        # Use proper async context instead of asyncio.run
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(fastmail.send_message(message=message, template_name=template_name))
-        finally:
-            loop.close()
-        logger("Auth", "Notification", "INFO", "null", f"Template email sent successfully to: {email}, template: {template_name}")
+        logger("Auth", "Notification", "INFO", "null", f"Template rendered: {template_name}")
+
+        # Run async function in sync Celery task
+        asyncio.run(_send_email_async(email, subject, rendered_html, is_html=True))
+        
+        logger("Auth", "Notification", "INFO", "null", f"Template email task completed for: {email}")
     except Exception as e:
         logger("Auth", "Notification", "ERROR", "ERROR", f"Failed to send template email to {email}, template {template_name}: {str(e)}")
         raise
-
-
 
 
 def _validate_phone_number(phone: str) -> bool:
