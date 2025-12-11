@@ -77,3 +77,4 @@ sonar-project.properties.bak
 *.tmp
 *.temp
 debug_*.py
+uv.lock

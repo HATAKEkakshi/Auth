@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.model.model import User
 from auth.config.redis import add_jti_to_blacklist
-from auth.Dependenices.dependencies import get_user2_access_token, User1Dep
+from auth.Dependenices.dependencies import get_user2_access_token, User2Dep
 from auth.services.user2 import User2Service
 from auth.helper.utils import TEMPLATE_DIR
 from auth.config.notification import app_settings
@@ -16,7 +16,7 @@ templates = Jinja2Templates(TEMPLATE_DIR)
 
 
 @user.get("/")
-async def get_user(id: str, request: Request, _: User1Dep):
+async def get_user(id: str, request: Request, _: User2Dep):
     return await user_service.get_user(id, request)
 
 
@@ -89,5 +89,5 @@ async def logout(token_data: Annotated[dict, Depends(get_user2_access_token)]):
 
 
 @user.delete("/delete")
-async def delete_user(id: str, email: str, request: Request, _: User1Dep):
+async def delete_user(id: str, email: str, request: Request, _: User2Dep):
     return await user_service.delete_user(id, email, request)

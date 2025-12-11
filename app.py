@@ -10,7 +10,7 @@ from auth.config.database import start_db_monitoring,db_settings
 from auth.config.redis import start_redis_monitoring, init_redis_pool, check_redis_health
 from auth.config.database import check_database_health
 from auth.middleware.security import SecurityMiddleware
-
+import uvicorn
 
 app=FastAPI()
 
@@ -86,3 +86,6 @@ def get_scalar_docs():
         openapi_url=app.openapi_url,
         title="Scalar API"
     )
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
